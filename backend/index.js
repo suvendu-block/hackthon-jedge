@@ -15,8 +15,14 @@ dotenv.config();
 // express app
 const app = express();
 
+// middleware
+app.use(express.json({ limit: '1mb' }));
+app.use(cors({ origin: process.env.CLIENT_URL }));
 
-
+// health check
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', service: 'HackJudge AI API' });
+});
 
 // routes
 app.use('/api/auth',authRoutes);

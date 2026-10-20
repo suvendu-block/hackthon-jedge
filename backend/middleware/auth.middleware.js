@@ -1,4 +1,4 @@
-import JWT from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import User from '../model/user.model.js';
 
 
@@ -10,9 +10,9 @@ export const protect = async (req,res,next) => {
         const header = req.headers.authorization;
 
         // header bearer
-        if (!header || !header.startWith('Bearer')) {
+        if (!header || !header.startsWith('Bearer ')) {
             return res.status(401).json({
-                error: {code: "UNAUTHORIZED",message: "Not Authenticated"};
+                error: {code: "UNAUTHORIZED",message: "Not Authenticated"}
             });
         }
 
@@ -24,7 +24,7 @@ export const protect = async (req,res,next) => {
         // not user
         if (!user) {
             return res.status(401).json({
-                error: {code: "UNAUTHORIZED", message: "User no longer exists"};
+                error: {code: "UNAUTHORIZED", message: "User no longer exists"}
             });
         }
 
@@ -34,7 +34,7 @@ export const protect = async (req,res,next) => {
         next();
     } catch (error) {
         return res.status(401).json({
-            error: {code: "Invalid token", message: "invalid or expired token "};
+            error: {code: "Invalid token", message: "invalid or expired token "}
         });
 
     };
@@ -47,7 +47,7 @@ export const protect = async (req,res,next) => {
 export const requireRole = (...roles) => (req,res,next) => {
     if (!roles.includes(req.user.role)) {
         return res.status(403).json({
-            error: {code: "FORBIDDEN" , message: "Insufficient Permissions"};
+            error: {code: "FORBIDDEN" , message: "Insufficient Permissions"}
         })
     }
     next();

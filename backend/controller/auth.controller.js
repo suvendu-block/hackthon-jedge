@@ -44,14 +44,14 @@ export const registerUser = async (req,res) => {
         const exists = await User.findOne({email});
         if (exists) {
             return res.status(400).json({
-                error: {code : "Email Already Taken", message: "Email Already registered"};
+                error: {code : "Email Already Taken", message: "Email Already registered"}
             })
         }
 
 
         // hash password
         const passwordHash = await bcrypt.hash(password, 10);
-        const user = await User.create({name,email,passwordHash,role});
+        const user = await User.create({name,email,password: passwordHash,role});
 
 
         return res.status(201).json(signResponse(user));
@@ -87,8 +87,8 @@ export const login = async (req,res) => {
         
 
         // hash & compare
-        const user = await User.findOne({ email }).select("+passwordHash");
-        const valid = user && (await bcrypt.compare(password,user.passwordHash));
+        const user = await User.findOne({ email }).select("+password");
+        const valid = user && (await bcrypt.compare(password,user.password));
 
         // not valid 
         if (!valid) {
