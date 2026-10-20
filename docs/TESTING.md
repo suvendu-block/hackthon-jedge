@@ -109,6 +109,21 @@ Run everything in CI on each pull request (BL-22).
 
 **Never hit a live LLM API in CI** — use recorded fixtures or a mock provider.
 
+### Current reality (2026-10-20)
+
+- **Runner in use:** Node's built-in `node --test` (ADR-0014) — no framework
+  installed yet. Script: `node --test "tests/*.test.js"` (**must be quoted**;
+  bare directory args crash on Node 24).
+- **Live suite:** `backend/tests/auth.test.js` — **12/12 passing** against a
+  running server + real Atlas DB (register ×4, login ×3, `/me` ×3,
+  logout ×2), including assertions that `password`/`passwordHash` never
+  appear in responses.
+- **Known gap:** tests require `npm run dev` running and leave
+  `test+<timestamp>@example.com` users in Atlas — fixed when Phase 0.5 adds
+  supertest + an exported `app` + teardown.
+- Coverage targets above are aspirational; scoring unit tests start in
+  Phase 4.
+
 ## 10. Definition of Done for a Feature
 
 1. Unit/integration tests written and passing.

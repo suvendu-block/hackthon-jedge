@@ -6,31 +6,60 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
+### Added (2026-10-20)
 
-- Project README with full product specification (problem, goals, features,
-  rubric, API overview, data models, AI principles, security considerations).
-- Documentation set in `docs/` (24 files): architecture, overview, backlogs,
-  contribution, conversations, decisions, deployments, human guidelines,
-  milestones, operations, principles, privacy, project details, requirements,
-  roadmap, security, specification, steps, tasks, testing, troubleshooting,
-  vision, and the file index.
-- Backend scaffold: `backend/package.json` with dependencies:
-  - express `^5.3.0`
-  - mongoose `^9.11.2`
-  - mongodb `^7.7.0`
-  - dotenv `^18.0.8`
-  - nodemon `^3.1.14` (runtime dependency)
-- `frontend/` directory reserved for the React client.
+- **Architecture + View Overhaul declared** — ADR-0013 in
+  [DECISIONS.md](DECISIONS.md); target architecture documented in
+  [ARCHITECTURE.md](ARCHITECTURE.md) Part 2 (strict 5-layer backend,
+  feature-first frontend with design system).
+- **Auth API complete:** `POST /api/auth/register`, `POST /api/auth/login`,
+  `POST /api/auth/logout`, `GET /api/auth/me`.
+- **Auth middleware:** `protect` (Bearer JWT, 7-day expiry) and
+  `requireRole` (organizer/judge/team RBAC).
+- **User model** — name, unique email, bcrypt-hashed password
+  (`select:false`), role enum, timestamps.
+- **Health endpoint** `GET /api/health` + CORS (`CLIENT_URL`) + JSON
+  parsing (1 MB) wired in `index.js`.
+- **Test suite:** `backend/tests/auth.test.js` — **12/12 passing** with
+  Node's built-in runner (`npm test` → `node --test "tests/*.test.js"`).
+- Scripts: `dev` (nodemon), `start`, `test` in `backend/package.json`.
+- Docs set rewritten (24 files): current reality + overhaul direction,
+  `frontend/` naming, real ports/env names, incident history in
+  [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+### Fixed (2026-10-19/20)
+
+- **MongoDB SRV failure** (`querySrv ECONNREFUSED`) — machine's DNS
+  (`10.222.71.160`) refuses Node SRV lookups; switched `.env` to a standard
+  non-SRV connection string with explicit shard hosts + `replicaSet`.
+- **`npm test` crash** (`Cannot find module …/tests`) — Node 24 treats a
+  directory argument as a literal module path; script changed to
+  `node --test "tests/*.test.js"`; also removed the duplicate `"test"` key
+  from `package.json`.
+- **Register 500** (`Path 'password' is required`) — controller saved
+  `passwordHash` but the schema field is `password`; corrected `create`,
+  `select("+password")`, and `bcrypt.compare` usages.
+- **Valid tokens rejected (401)** — `header.startWith` typo →
+  `startsWith('Bearer ')`; imported `JWT` but called `jwt.verify` →
+  consistent lowercase `jwt`.
+- **Missing env vars** — added `JWT_SECRET` (64-char random) and
+  `CLIENT_URL` to `.env`.
+
+### Security (2026-10-20)
+
+- Passwords hashed with bcryptjs (10 rounds); password field excluded from
+  default queries and verified absent from all API responses by tests.
+- Uniform login failure responses (no user enumeration).
 
 ### Known Gaps
 
-- No `server.js` or backend source files yet — start with
-  [STEPS.md](STEPS.md) §2.
-- No start/dev scripts in `backend/package.json`.
-- Frontend not yet scaffolded (Vite React app pending).
-- No tests, linting, or CI configured.
-- No `LICENSE` selected (BL-32).
+- Frontend still the Vite template — no `api.js`, login UI, or app screens.
+- No central error handler / validation middleware / `services/` layer
+  (planned in overhaul, Phase 0.5).
+- Housekeeping: stray `backend/config/dns.js` and unused npm `dns` package
+  pending removal; no `LICENSE` selected (BL-32).
+- Test users (`test+<timestamp>@example.com`) accumulate in Atlas per test
+  run — purge periodically until test teardown exists.
 
 ---
 

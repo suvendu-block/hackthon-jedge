@@ -120,6 +120,49 @@ and record the outcome here.
 code, ever. External URLs validated against an allowlist to prevent SSRF.
 **Consequences:** Limits depth of analysis; eliminates a major attack class.
 
+## ADR-0013 — Architecture + View Overhaul (v1 → v2)
+
+**Status:** Accepted — in progress (2026-10-20)
+**Context:** The Phase 0/1 MVP was built quickly and worked, but accumulated
+structural debt: per-controller try/catch boilerplate with inconsistent error
+shapes, no validation layer, naming drift (`model/` singular,
+`genrateToken.js` typo, `server.js`-era docs vs. `index.js` reality),
+frontend still a template, and no defined visual language for the product's
+core idea (evidence typing, AI-vs-judge distinction). The team also wants to
+re-anchor the project's "view" (UI) around a reference GitHub project once
+linked.
+**Decision:** Rewrite rather than patch:
+
+1. **Backend v2** — strict 5-layer pipeline (pre-router middleware → routes →
+   controllers → services → models → central error handler), validation
+   middleware before controllers, single config module that fail-fast-validates
+   env at boot, normalized file naming.
+2. **Frontend v2 (view)** — feature-first structure (`features/*`), design
+   tokens, reusable `components/ui/` primitives, evidence-badge visual
+   language (Verified / Claimed / Inferred), explicit AI-suggested vs
+   judge-entered styling, mobile-first scorecard.
+3. **Reference reconciliation** — when a reference repository URL is
+   provided, its architecture and UI are mapped as adopt / adapt / reject,
+   each recorded as its own ADR appended here.
+
+**Consequences:** Short-term rework of recently written code; long-term one
+error shape everywhere, testable pure services, faster feature UI, and a
+coherent visual identity. Non-negotiables (server-side AI, judges final,
+typed evidence, untrusted input) are unchanged by the overhaul.
+
+## ADR-0014 — Tests Run on Node's Built-in Runner
+
+**Status:** Accepted (2026-10-20)
+**Context:** [TESTING.md](TESTING.md) proposed Jest/Vitest + Supertest. For
+the auth milestone, zero-dependency speed mattered more.
+**Decision:** Use `node --test "tests/*.test.js"` for now; the glob
+**must** be quoted (Node 24 treats a bare directory argument as a module
+path → `MODULE_NOT_FOUND`). Re-evaluate supertest + an exported `app` during
+the overhaul (Phase 0.5) so tests stop requiring a live server.
+**Consequences:** Zero new dependencies, 12 tests running today; tests hit
+the real Atlas DB and leave `test+…` users behind (cleanup needed until
+teardown lands).
+
 ## Related Documents
 
 - [PRINCIPLES.md](PRINCIPLES.md) — why these decisions were acceptable

@@ -20,8 +20,9 @@ frontend stays separate because `VITE_` vars are build-time.
 ### API service
 
 ```
-PORT=5000
-MONGODB_URI=mongodb+srv://<user>:<pass>@cluster/…/hackjudge
+PORT=3000
+MONGO_URL=mongodb+srv://<user>:<pass>@cluster/…/hackjudge   # or standard non-SRV form
+JWT_SECRET=<64-char hex>
 CLIENT_URL=https://your-frontend.vercel.app
 LLM_API_KEY=…            # only if AI enabled
 GITHUB_TOKEN=…           # only if GitHub analysis enabled
@@ -42,22 +43,23 @@ VITE_API_URL=https://your-api.onrender.com/api
 1. **Prepare repo**
    - [ ] `.gitignore` covers `node_modules/`, `.env`, build output
    - [ ] `package-lock.json` committed
-   - [ ] `npm start` script works (`node server.js`)
+   - [ ] `npm start` script works (`node index.js`)
 2. **Database**
    - [ ] Create Atlas cluster + DB user with least privilege
    - [ ] Whitelist service IPs / allow all from platform (prefer scoped)
-   - [ ] Store `MONGODB_URI` in the platform's secret store
+   - [ ] Store `MONGO_URL` in the platform's secret store (plus
+         `JWT_SECRET`, `PORT`, `CLIENT_URL`)
    - [ ] Verify connectivity from the API host
 3. **API**
    - [ ] Connect repo; set root directory `backend/`
-   - [ ] Build: `npm ci` · Start: `npm start`
+   - [ ] Build: `npm ci` · Start: `npm start` (`node index.js`)
    - [ ] Set env vars (including `CLIENT_URL` = exact frontend origin)
    - [ ] Health check path: `GET /api/health`
    - [ ] Confirm HTTPS URL serves the health check
 4. **Frontend**
-   - [ ] Connect repo; set root `client/` (create when scaffolded)
-   - [ ] Build: `npm ci && npm run dev` → output `dist/`
-   - [ ] Set `VITE_API_URL`, rebuild
+   - [ ] Connect repo; set root `frontend/`
+   - [ ] Build: `npm ci && npm run build` → output `dist/`
+   - [ ] Set `VITE_API_URL` (points at deployed API), rebuild
    - [ ] Confirm API calls succeed from the deployed origin
 5. **Wire together**
    - [ ] Frontend origin added to API CORS allowlist (`CLIENT_URL`)
@@ -106,7 +108,7 @@ VITE_API_URL=https://your-api.onrender.com/api
 
 | Env | Purpose | Frontend | API |
 | --- | --- | --- | --- |
-| `local` | Development | http://localhost:5173 | http://localhost:5000 |
+| `local` | Development | http://localhost:5173 | http://localhost:3000 |
 | `preview` | PR validation | preview URL | preview URL |
 | `production` | Real events | custom domain | custom domain |
 

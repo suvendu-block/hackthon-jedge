@@ -13,19 +13,20 @@ Implementable detail for the backend and frontend. Derived from
 | DB driver | MongoDB `^7.7.0` | Installed |
 | Env | dotenv `^18.0.8` | Installed |
 | Dev runner | nodemon `^3.1.14` | Installed |
-| Frontend | React via Vite | `npm create vite@latest client -- --template react` |
-| HTTP client | Axios | Shared client in `client/src/api.js` |
+| Frontend | React via Vite | `npm create vite@latest frontend -- --template react` (React 19 + Vite 8) |
+| HTTP client | Axios | Planned: shared client in `frontend/src/api/client.js` with Bearer interceptor |
 | Routing | react-router-dom | Client-side routes |
 | Styling | Tailwind CSS **or** Bootstrap | Choose exactly one (see ADR-0011) |
 | Auth | JWT or secure session + bcrypt | Password hashing mandatory |
 
 ## 2. Environment Variables
 
-### `backend/.env` (server — secret)
+### `backend/.env` (server — secret; 4 vars in use today)
 
 ```
-PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/hackjudge
+PORT=3000
+MONGO_URL=mongodb://user:pass@ac-…-00-00.host:27017,…/hackjudge?ssl=true&replicaSet=atlas-…-shard-0&authSource=admin
+JWT_SECRET=<64-char random hex>
 CLIENT_URL=http://localhost:5173
 
 # Optional: only if AI analysis is implemented
@@ -33,10 +34,14 @@ LLM_API_KEY=
 GITHUB_TOKEN=
 ```
 
-### `client/.env` (public — bundled)
+> **Field name is `MONGO_URL`** (not `MONGODB_URI`), read by
+> `config/db.js`. Prefer the standard non-SRV form if `mongodb+srv://` fails
+> in your network (see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) Incident #2).
+
+### `frontend/.env` (public — bundled)
 
 ```
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:3000/api
 ```
 
 > Any `VITE_`-prefixed variable is exposed to the browser. Never put secrets
@@ -211,7 +216,7 @@ score suggestions without labels and limitations.
 | `/submissions/:id/evaluate` | `JudgeEvaluation.jsx` | assigned judge |
 | `/events/:id/leaderboard` | `Leaderboard.jsx` | auth |
 
-### API client (`client/src/api.js`)
+### API client (`frontend/src/api/client.js` — target, Phase 1 frontend)
 
 ```js
 import axios from "axios";
@@ -220,10 +225,18 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
 });
 
+// attach JWT from localStorage on every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 export default api;
 ```
 
-Attach the auth token via an Axios interceptor; clear it on 401.
+On a 401 response: clear the stored token and redirect to `/login` (add a
+response interceptor when the login page lands).
 
 ### UI conventions
 
@@ -234,31 +247,48 @@ Attach the auth token via an Axios interceptor; clear it on 401.
 
 ## 8. Project Structure
 
+**As built today:**
+
 ```
-hackjudge-ai/
-├── client/
-│   ├── public/
+hackthon-jedge/
+├── frontend/                    # React 19 + Vite 8 (scaffolded)
 │   └── src/
-│       ├── api.js
-│       ├── components/
-│       ├── pages/  (Login, Dashboard, ProjectDetails, JudgeEvaluation, Leaderboard)
-│       ├── hooks/
-│       ├── context/
-│       ├── App.jsx
-│       └── main.jsx
-├── backend/
-│   ├── config/
-│   ├── controllers/
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   ├── services/  (scoringService.js, aiEvaluationService.js)
-│   ├── utils/
-│   ├── server.js
-│   └── .env
+│       ├── App.jsx  main.jsx    # template state — view overhaul pending
+│       ├── App.css  index.css
+│       └── assets/
+├── backend/                     # Express 5, ESM, entry: index.js, port 3000
+│   ├── config/   db.js  (+ dns.js 🗑 delete)
+│   ├── model/    user.model.js
+│   ├── controller/  auth.controller.js
+│   ├── middleware/  auth.middleware.js   # protect, requireRole
+│   ├── routes/      auth.routes.js
+│   ├── utils/       genrateToken.js      # typo — rename in v2
+│   ├── tests/       auth.test.js         # 12 passing
+│   ├── index.js
+│   ├── package.json                      # scripts: dev/start/test
+│   └── .env                              # PORT, MONGO_URL, JWT_SECRET, CLIENT_URL
 ├── docs/
 ├── .gitignore
 └── README.md
+```
+
+**Overhaul target (ADR-0013):**
+
+```
+frontend/src/
+├── app/            # router, layout, providers
+├── api/            # client.js + interceptors + per-resource modules
+├── features/       # auth/ events/ submissions/ judging/ leaderboard/
+├── components/ui/  # design-system primitives
+├── styles/         # design tokens
+└── hooks/ context/ utils/
+
+backend/
+├── config/  index.js        # fail-fast env validation
+├── routes/  controllers/    # thin
+├── services/                # scoringService, aiEvaluationService (pure)
+├── models/                  # mongoose schemas only
+└── middleware/              # cors→json→validate→auth→rbac + central error handler
 ```
 
 ## 9. Validation Rules Summary

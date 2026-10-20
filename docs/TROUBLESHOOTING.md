@@ -1,192 +1,221 @@
 # Troubleshooting — HackJudge AI
 
-Common problems and their fixes, ordered by how often they occur. For incident
-procedure see [OPERATIONS.md](OPERATIONS.md); for security-sensitive issues
-see [SECURITY.md](SECURITY.md).
+Common problems and fixes — **the top section is our real incident
+history** (each one actually hit during development, with the fix that
+worked), followed by the standing playbook.
 
-## Setup and Local Development
+---
 
-### `npm run dev` doesn't exist / nothing starts
+## Part 1 — Real Incidents (already solved here)
 
-**Symptom:** `Missing script: dev`.
-**Cause:** `backend/package.json` currently has no start/dev scripts.
-**Fix:** Add them as described in [STEPS.md](STEPS.md):
+### 🐛 Incident #1 — `npm test` crashes: `Cannot find module …\backend\tests`
+
+**Symptom:**
+```
+Error: Cannot find module 'D:\…\backend\tests'
+✖ tests (92ms)  fail 1
+```
+**Cause:** Node 24 treats a **bare directory argument** as a literal module
+path — both `node --test tests/` and `node --test tests` fail this way on
+Windows.
+**Fix:** quote the glob so Node expands it itself:
 
 ```json
-"scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js"
-}
+"test": "node --test \"tests/*.test.js\""
+```
+(Bare `node --test` with no args also works — auto-discovery.) Also remove
+any **duplicate `"test"` key** in `package.json` — JSON silently keeps the
+last one.
+
+### 🐛 Incident #2 — `querySrv ECONNREFUSED _mongodb._tcp.cluster0.…`
+
+**Symptom:** `Server is running on port 3000` then
+`Error: querySrv ECONNREFUSED …` → exit 1.
+**Cause:** the machine's only DNS server (e.g. `10.222.71.160`, a private/
+VPN resolver) refuses Node's c-ares **SRV** queries — even though Windows
+`Resolve-DnsName -Type SRV` succeeds and the cluster's TCP 27017 is open.
+**Fix (chosen):** switch `.env` from `mongodb+srv://` to the **standard
+connection string** (explicit shard hosts, no SRV):
+
+```
+MONGO_URL=mongodb://user:pass@ac-…-00-00.host:27017,ac-…-00-01.host:27017,ac-…-00-02.host:27017/hackjudge?ssl=true&replicaSet=atlas-…-shard-0&authSource=admin
+```
+Copy hosts + replicaSet from Atlas → Connect → Drivers → standard string.
+**Alternative:** set adapter DNS to `8.8.8.8` / `1.1.1.1` (may be blocked on
+corporate networks).
+
+### 🐛 Incident #3 — Register always 500: `Path 'password' is required`
+
+**Symptom:** server log shows
+`Register Error User validation failed: password: Path 'password' is required.`
+**Cause:** controller wrote `User.create({ …, passwordHash, role })` but the
+schema field is **`password`** — `passwordHash` isn't in the schema (dropped
+by strict mode), so required-field validation fails.
+**Fix (3 spots):**
+```js
+User.create({ name, email, password: passwordHash, role })
+User.findOne({ email }).select("+password")     // field is select:false
+bcrypt.compare(password, user.password)
+```
+**Lesson:** a mismatched field name here fails *silently downstream* —
+login then 401s because no user was ever created. Read the server log first.
+
+### 🐛 Incident #4 — Every valid token returns 401
+
+**Symptom:** `/me` and `/logout` fail with 401 even with a fresh, valid
+token; "no token" and "garbage token" tests pass.
+**Cause (both present at once):**
+1. `header.startWith('Bearer')` — **typo**, String has `startsWith`; the
+   TypeError is swallowed by `catch` → generic 401.
+2. `import JWT from 'jsonwebtoken'` but `jwt.verify(...)` → ReferenceError,
+   same swallowed path.
+**Fix:** `startsWith('Bearer ')` (note the trailing space) and consistent
+lowercase `jwt` import/call.
+**Lesson:** a `catch-all → 401` hides real errors — log
+`error.message` in the catch while developing.
+
+### 🐛 Incident #5 — `.env` vars undefined / auth crashes
+
+**Symptom:** `jwt.sign` throws (register 500) or CORS never applies.
+**Cause:** `JWT_SECRET` (and `CLIENT_URL`) simply weren't in `.env` —
+dotenv loaded only the 2 vars that existed (`injected env (2)`).
+**Fix:** add both; generate a secret with
+`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
+**Watch for:** the `injected env (N)` line on boot — N tells you how many
+vars actually loaded.
+
+### 🐛 Incident #6 — Health check 404 / body always `undefined`
+
+**Symptom:** `GET /api/health` 404; every `req.body` field `undefined`.
+**Cause:** `index.js` had no health route, and **`express.json()` was never
+registered** — Express doesn't parse bodies by default. `cors` was imported
+but never `app.use()`d either.
+**Fix:** register middleware **before** routes:
+```js
+app.use(express.json({ limit: '1mb' }));
+app.use(cors({ origin: process.env.CLIENT_URL }));
+app.get('/api/health', …);
 ```
 
-### Server won't start: `server.js` not found
+---
 
-**Symptom:** `Cannot find module .../server.js`.
-**Cause:** Backend has dependencies installed but the source file hasn't been
-created yet (current repository state).
-**Fix:** Create `backend/server.js` per [STEPS.md](STEPS.md) §2.
+## Part 2 — Setup and Local Development
 
-### MongoDB connection fails
+### `npm run dev` → `Missing script: dev`
+Scripts missing from `backend/package.json`. Required set:
+```json
+"scripts": { "dev": "nodemon index.js", "start": "node index.js", "test": "node --test \"tests/*.test.js\"" }
+```
 
-**Symptom:** `MongooseServerSelectionError: connect ECONNREFUSED` or Atlas
-`IP not allowed`.
+### `Cannot find module '…/server.js'`
+There is **no `server.js`** — the entry is **`index.js`** (docs written
+before the rename were corrected 2026-10-20).
 
-**Checks:**
-
-1. Is MongoDB running locally? `mongosh --eval "db.runCommand({ping:1})"`
-2. Is `MONGODB_URI` set in `backend/.env` and actually loaded (file is in the
-   **backend** directory)?
-3. Atlas: is your IP allowlisted (or `0.0.0.0/0` for a throwaway dev
-   cluster)? Is the DB user's password correct in the URI?
-4. Is the cluster awake (M0 pauses after inactivity)?
+### MongoDB connection fails (`ECONNREFUSED` / Atlas `IP not allowed`)
+1. Local mongod running? `mongosh --eval "db.runCommand({ping:1})"`
+2. Is `.env` next to `index.js` and loaded? (check `injected env (N)`)
+3. Atlas: IP allowlisted? DB user/password correct in the URI?
+4. M0 clusters pause after inactivity — resume in the Atlas UI.
+5. SRV issues → Incident #2 above.
 
 ### Env variables are `undefined`
+- `import dotenv from 'dotenv'; dotenv.config();` must run **before** first
+  `process.env` read (top of `index.js` ✅).
+- File must be exactly `.env`, in `backend/`.
+- After editing `.env` → **restart** the process (nodemon may not watch it).
 
-**Symptom:** `process.env.MONGODB_URI` is undefined.
-**Fix:** `require("dotenv").config()` at the very top of `server.js`; confirm
-`.env` sits next to `server.js`, is spelled `.env`, and is **not** committed.
-
-### Port already in use
-
-**Symptom:** `EADDRINUSE: address already in use :::5000`.
-**Fix:** stop the other process, or run with a different port:
-
+### Port already in use: `EADDRINUSE :::3000`
+Another process holds 3000 (often a forgotten `node index.js`):
 ```powershell
-$env:PORT=5001; npm run dev
+Get-NetTCPConnection -LocalPort 3000 -State Listen |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```
+Or run elsewhere: `$env:PORT=3001; npm run dev`.
 
-## Frontend / Client
+## Part 3 — Frontend / Client
 
-### `VITE_API_URL` is undefined in the browser
+### `VITE_API_URL` undefined
+Lives in `frontend/.env`; Vite reads it at **start time** → restart
+`npm run dev`. Access as `import.meta.env.VITE_API_URL`, not `process.env`.
 
-**Fix:** it lives in `client/.env`; Vite reads it at **start time** — restart
-`npm run dev` after creating/changing it. Note `import.meta.env.VITE_API_URL`,
-not `process.env`.
+### CORS error ("blocked by CORS policy")
+1. `CLIENT_URL` in `backend/.env` must match the frontend origin **exactly**
+   (`http://localhost:5173`, no trailing slash) — currently set ✅.
+2. `app.use(cors({ origin: process.env.CLIENT_URL }))` must appear **before**
+   routes.
+3. Restart the API after env changes.
+4. Prod: https frontend → https API only (no mixed content).
 
-### CORS error: "blocked by CORS policy"
+### 404 on page refresh (production SPA)
+Add a rewrite to `index.html` (Vercel `vercel.json` rewrites; Netlify
+`_redirects`: `/* /index.html 200`).
 
-**Symptom:** Browser console: `Access to fetch ... has been blocked by CORS`.
+### 401 immediately after login
+Token not attached (missing Axios interceptor), token expired (7 days), or
+wrong header shape — must be `Authorization: Bearer <token>`.
 
-**Checks:**
+## Part 4 — API and Data
 
-1. API sets `cors({ origin: process.env.CLIENT_URL })` and `CLIENT_URL`
-   matches the frontend origin **exactly** (scheme + host + port, no trailing
-   slash).
-2. `.env` loaded on the API side (restart the API after changes).
-3. Frontend calls the right base URL (`http://localhost:5000/api` locally).
-4. You're not mixing `https://` frontend with `http://` API (mixed content).
+### 422/400 "weights must sum to 100"
+Rubric validator — adjust weights until the running total hits 100.
 
-### 404 on client routes after refresh (production)
+### Score total ≠ my hand calculation
+1. Rounding: contributions round to 2 decimals **before** summing.
+2. Draft evaluations are excluded from the leaderboard.
+3. All criteria must be scored (missing ≠ zero).
+4. If a unit test of `scoringService` fails → it's a bug, file it.
 
-**Cause:** SPA history routing needs a rewrite rule.
-**Fix:** configure the host to rewrite all paths to `index.html` (Vercel:
-`vercel.json` rewrites; Netlify: `_redirects` with `/* /index.html 200`).
-
-### API returns 401 immediately after login
-
-**Checks:** token stored and attached via the Axios interceptor; token not
-expired; `Authorization: Bearer <token>` header present; API verifies the same
-secret used to sign.
-
-## API and Data
-
-### Validation errors on event creation (weights)
-
-**Symptom:** 422 "weights must sum to 100".
-**Cause:** the rubric validator requires Σ weights = 100 exactly.
-**Fix:** adjust weights in the rubric editor (it shows a running total).
-
-### Score total doesn't match my hand calculation
-
-**Checks:**
-
-1. Rounding rule: contributions round to 2 decimals **before** summing
-   ([SPECIFICATION.md](SPECIFICATION.md) §5).
-2. Are you including a draft evaluation? Drafts are excluded from the
-   leaderboard.
-3. Are all rubric criteria scored? Missing scores are rejected, not zeroed.
-4. Unit test the case in `scoringService` — if it fails, it's a bug: file it.
-
-### Duplicate evaluation error (409)
-
-**Cause:** unique index `{ submissionId, judgeId }` — one evaluation per judge
-per submission.
-**Fix:** update the existing evaluation instead of creating a new one.
+### 409 duplicate evaluation
+Unique index `{ submissionId, judgeId }` — update the existing evaluation.
 
 ### Judge can't see a submission
-
-**Checks:** the judge is in the event's `judgeIds`; the submission belongs to
-that event; assignment checks aren't bypassed by a stale client cache
-(refresh).
+Judge not in event's `judgeIds`, wrong event, or stale client cache.
 
 ### Judge sees another judge's draft scores
+**Security bug (P0)** — report per [SECURITY.md](SECURITY.md) §10.
 
-**This is a security bug.** Verify the route enforces assignment and
-RBAC; report per [SECURITY.md](SECURITY.md) §10.
+## Part 5 — AI Analysis
 
-## AI Analysis
+- **503 on "Request AI analysis":** missing/invalid `LLM_API_KEY`, provider
+  down, timeout, or schema-invalid output (service fails closed by design).
+  Check server logs; never display a partial report.
+- **Suggestions don't populate the scorecard:** by design — judges must
+  click "accept" per criterion (FR-18).
+- **Repo content containing "ignore previous instructions":** must stay
+  wrapped as untrusted data (ADR-0012). If the model obeys it → P0 bug,
+  add a fixture to the test suite ([TESTING.md](TESTING.md) §8).
 
-### "Request AI analysis" returns 503
+## Part 6 — Performance
 
-**Causes:** missing/invalid `LLM_API_KEY` on the server, provider outage,
-timeout, or malformed model output (the service fails closed by design).
-**Fix:** check server logs for the recorded reason; verify the key; retry. The
-client should show a clear error — never a partial report.
+- **Leaderboard slow:** index `{ eventId, status }` on evaluations; use one
+  aggregation pipeline (watch for N+1).
+- **429s during judging:** rate limits on `/auth/*` or AI endpoints — raise
+  for the event window via config, don't disable in production.
 
-### Report looks generic or ignores the repository
-
-**Checks:** submission actually contains the evidence (repo URL, description);
-prompt includes the event rubric; content wasn't truncated by size limits.
-
-### Prompt-injection concern (repo README contains "instructions")
-
-**Expected behavior:** external content must be wrapped as untrusted data and
-never treated as instructions ([SECURITY.md](SECURITY.md) §7). If the model
-followed embedded instructions, that's a P0 bug — capture the fixture and add
-a test per [TESTING.md](TESTING.md) §5.
-
-### AI suggestions aren't populating my scorecard
-
-**By design.** Suggestions never auto-fill judge scores; use the explicit
-"accept suggestion" action per criterion (FR-18).
-
-## Performance
-
-### Leaderboard is slow
-
-**Checks:** `evaluations` index on `{ eventId, status }`; number of
-submissions; N+1 queries in aggregation (fetch in one aggregation pipeline).
-
-### Requests are rate-limited (429) during judging
-
-**Cause:** AI or auth rate limits.
-**Fix:** raise the limit for the event window in config, or stagger judge AI
-requests. Never disable rate limits in production.
-
-## Git and Repo
+## Part 7 — Git and Repo
 
 ### `.env` got committed
+Rotate **everything** in it immediately (`MONGO_URL` password,
+`JWT_SECRET`), then purge history (`git filter-repo`) and verify
+`.gitignore`.
 
-**Immediate steps:** rotate every credential that was in it (`LLM_API_KEY`,
-`GITHUB_TOKEN`, DB user password), then purge from history
-(`git filter-repo`) and confirm `.gitignore` covers `.env`.
-
-### `node_modules` in the repo / huge diffs
-
-**Fix:** ensure root and `backend/.gitignore` include `node_modules/` and
-lockfiles are the only generated files tracked.
+### Junk files to remove (housekeeping backlog)
+- `backend/config/dns.js` — stray debug server referencing nonexistent
+  `MONGO_URI`.
+- npm package `dns` in dependencies — Node's `dns` is built-in;
+  `npm uninstall dns`.
 
 ## Getting More Detail
 
-- API: enable dev logging and reproduce; errors should include request id and
-  route, never secrets or stack traces in production.
-- DB: Atlas → Collections → check documents against the schemas in
-  [SPECIFICATION.md](SPECIFICATION.md).
-- Still stuck? Open an issue with: repro steps, expected vs actual, role of
-  the test user, timestamps, and sanitized logs.
+- Reproduce with the server in the foreground — watch the console
+  (`Register Error …` style logs exist for a reason).
+- Errors must include request id + route in dev; never secrets or stack
+  traces in production responses.
+- Still stuck? Open an issue with: repro steps, role of the test user,
+  timestamps, sanitized logs.
 
 ## Related Documents
 
 - [OPERATIONS.md](OPERATIONS.md) — incident response
 - [STEPS.md](STEPS.md) — correct setup procedure
-- [TESTING.md](TESTING.md) — how to reproduce with tests
+- [CHANGELOG.md](CHANGELOG.md) — what these incidents turned into

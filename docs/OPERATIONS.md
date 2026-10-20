@@ -48,7 +48,7 @@ healthy, and what to do when something breaks.
 
 | Env | Frontend | API | DB |
 | --- | --- | --- | --- |
-| Local | http://localhost:5173 | http://localhost:5000 | mongodb://127.0.0.1:27017/hackjudge |
+| Local | http://localhost:5173 | http://localhost:3000 | Atlas `MONGO_URL` (or local `mongodb://127.0.0.1:27017/hackjudge`) |
 | Production | custom domain | `https://<api-host>/api` | Atlas cluster URI |
 
 ## Routine Operations
@@ -72,7 +72,7 @@ healthy, and what to do when something breaks.
 ## Configuration and Changes
 
 - Config changes go through env vars — no code edits for config
-  (`PORT`, `MONGODB_URI`, `CLIENT_URL`, keys).
+  (`PORT`, `MONGO_URL`, `JWT_SECRET`, `CLIENT_URL`, keys).
 - Rubric changes are data operations by the organizer — no deploy needed.
 - Schema migrations: additive-first (add fields with defaults, backfill,
   then remove old fields in a later release).

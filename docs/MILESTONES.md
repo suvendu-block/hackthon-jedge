@@ -12,7 +12,7 @@ must ship something a hackathon could actually use, however small.
 
 ---
 
-## M0 — Runnable Skeleton
+## M0 — Runnable Skeleton — ✅ achieved 2026-10-20
 
 - **Goal:** A developer can clone, configure, and run both halves of the
   system.
@@ -20,14 +20,34 @@ must ship something a hackathon could actually use, however small.
   `.env.example`, Vite React client with an Axios client and router shell.
 - **Gate:** Health check returns `ok`; client renders; docs describe exact
   steps.
+- **Status:** Backend verified (`/api/health` green, Atlas connected,
+  `npm run dev`/`start`/`test` scripts). Remaining: `.env.example`, Axios
+  client, router shell (folded into Phase 1 frontend).
 
-## M1 — Trusted Identities
+## M1 — Trusted Identities — 🟡 backend complete
 
 - **Goal:** Every action belongs to a known user with a known role.
 - **Deliverable:** Register/login, bcrypt hashing, JWT/session, RBAC
   middleware, login UI.
 - **Gate:** Integration tests prove a judge cannot hit organizer routes and a
   token-less request is rejected.
+- **Status:** ✅ backend — register/login/logout/me live, `protect` +
+  `requireRole` shipped, **12/12 tests passing** (incl. no-token,
+  garbage-token, no-leak assertions). ⬜ frontend login UI + auth context +
+  role-enforcement deny tests remain before the gate closes.
+
+## M1.5 — Architecture + View Overhaul — 📍 current (ADR-0013)
+
+- **Goal:** The codebase and UI stop fighting the team: one error shape,
+  one layer per concern, a feature-first frontend with a real design
+  language.
+- **Deliverable:** 5-layer backend pipeline + central error handler +
+  validation middleware + config module + normalized names; feature-first
+  frontend with design tokens, `components/ui/`, evidence badges,
+  AI-vs-judge styling; reference-repo reconciliation ADRs.
+- **Gate:** New endpoints use routes → controllers → services with zero
+  per-controller try/catch; UI primitives render all MVP screens;
+  reference repo adopted/adapted/rejected explicitly.
 
 ## M2 — Events With Real Rubrics
 

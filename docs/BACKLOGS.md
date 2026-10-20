@@ -15,7 +15,7 @@ Priority: **P0** must-have MVP · **P1** important · **P2** nice-to-have.
 | BL-04 | Scorecards and feedback: criterion scores, comments, strengths, improvement areas | P0 | todo |
 | BL-05 | AI evaluation assistant: preliminary analysis and scoring suggestions | P1 | todo |
 | BL-06 | Leaderboard: weighted scores and ranking of eligible submissions | P0 | todo |
-| BL-07 | Authentication and roles: organizer, judge, team | P0 | todo |
+| BL-07 | Authentication and roles: organizer, judge, team | P0 | in-progress *(backend done + tested; login UI pending)* |
 | BL-08 | Evaluation history: record of submitted scores and feedback | P1 | todo |
 
 ## Planned Enhancements (from README)
@@ -34,14 +34,14 @@ Priority: **P0** must-have MVP · **P1** important · **P2** nice-to-have.
 
 | ID | Feature | Priority | Status |
 | --- | --- | --- | --- |
-| BL-16 | Health check endpoint `/api/health` | P0 | todo |
-| BL-17 | Server-side input validation and sanitization | P0 | todo |
+| BL-16 | Health check endpoint `/api/health` | P0 | **done** |
+| BL-17 | Server-side input validation and sanitization | P0 | in-progress *(manual checks in auth; zod middleware planned Phase 0.5)* |
 | BL-18 | Rate limiting on auth and AI endpoints | P1 | todo |
-| BL-19 | CORS allowlist configuration | P0 | todo |
-| BL-20 | Unit tests for scoring service | P1 | todo |
-| BL-21 | Integration tests for auth, events, submissions | P1 | todo |
+| BL-19 | CORS allowlist configuration | P0 | **done** (`cors({origin: CLIENT_URL})`) |
+| BL-20 | Unit tests for scoring service | P1 | todo *(Phase 4)* |
+| BL-21 | Integration tests for auth, events, submissions | P1 | in-progress *(auth: 12 passing; events/submissions pending)* |
 | BL-22 | CI pipeline (lint + test on PR) | P2 | todo |
-| BL-23 | Linting and formatting (ESLint + Prettier) | P1 | todo |
+| BL-23 | Linting and formatting (ESLint + Prettier) | P1 | in-progress *(ESLint ships in frontend; backend config pending)* |
 | BL-24 | Error tracking (e.g. Sentry) | P2 | todo |
 | BL-25 | Structured logging | P2 | todo |
 

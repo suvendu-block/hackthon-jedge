@@ -111,6 +111,56 @@ privacy), plans (roadmap, tasks), and specs.
 
 ---
 
+## 2026-10-20 — Debugging session: six bugs behind "wtf, happening"
+
+**Participants:** Team + AI agent
+**Discussion:** `npm test` failed with `Cannot find module …\tests`; after
+fixing that, tests cascaded — register 500 → no user → login 401 → `/me`
+401. Chasing it surfaced a chain: Node 24 directory-argument quirk →
+duplicate `"test"` keys in package.json → `password` vs `passwordHash`
+field mismatch → missing `JWT_SECRET` → `startWith` typo + `JWT`/`jwt`
+mismatch swallowed by a catch-all 401.
+**Outcome:** All six fixed; **12/12 tests passing**. Two process lessons
+recorded: (1) read the *server log* before trusting client-side status
+codes, (2) a `catch → 401` without logging hides the real error. Each
+incident now documented with its fix in
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md) Part 1 and in
+[CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## 2026-10-20 — The overhaul decision: rewrite, not patch
+
+**Participants:** Team
+**Discussion:** The MVP works, but the structure fights us: try/catch
+boilerplate in every controller with inconsistent error shapes, no
+validation layer, naming drift (`server.js` in docs vs. `index.js` in code,
+`model/` singular, `genrateToken` typo), a frontend still on the Vite
+template, and no visual language for the product's central idea — typed
+evidence and AI-vs-judge distinction. Separately: a reference GitHub project
+will anchor the new "view" direction once linked.
+**Outcome:** **Architecture + View Overhaul declared as ADR-0013** —
+backend v2 = strict 5-layer pipeline with central error handler, validation
+middleware, config module, normalized names; frontend v2 = feature-first
+folders, design tokens, `components/ui/`, evidence badges, mobile-first
+scorecard. Docs rewritten to current reality. Reference repo to be folded
+in as adopt/adapt/reject ADRs when the URL arrives.
+Files: [ARCHITECTURE.md](ARCHITECTURE.md) Part 2, ADR-0013/0014.
+
+---
+
+## 2026-10-20 — Test runner choice
+
+**Participants:** Team
+**Discussion:** [TESTING.md](TESTING.md) proposed Jest/Vitest + Supertest,
+but installing/configuring a framework delayed the first green test.
+**Outcome:** Node's built-in `node --test` for now — zero dependencies, 12
+tests running the same day. Recorded as **ADR-0014**, including the quoted
+glob requirement. Supertest + exported `app` moves into Phase 0.5 so tests
+stop needing a live server and stop creating `test+…` users in Atlas.
+
+---
+
 ## Template for Future Entries
 
 ```markdown

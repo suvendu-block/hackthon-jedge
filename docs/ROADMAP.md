@@ -1,24 +1,52 @@
 # Development Roadmap — HackJudge AI
 
-Phased roadmap from scaffold to a production-ready judging platform. Progress
-mirrors the roadmap in [README.md](../README.md); detailed tasks live in
-[TASKS.md](TASKS.md).
+Phased roadmap from scaffold to a production-ready judging platform —
+now including the **Architecture + View Overhaul** track declared in
+ADR-0013 ([DECISIONS.md](DECISIONS.md)).
 
-## Phase 0 — Foundation ✎ in progress
+## Phase 0 — Foundation ✅ complete (2026-10-19/20)
 
 - [x] Repository initialized (`backend/`, `frontend/`, `docs/`)
 - [x] Backend dependencies installed (Express 5, Mongoose 9, MongoDB 7,
-      dotenv, nodemon)
-- [x] Project documentation set created
-- [ ] Root `.gitignore`, `LICENSE`, lint/format tooling
-- [ ] `server.js` + health endpoint + DB config
-- [ ] Frontend scaffolded (Vite + React + Axios + Router)
+      dotenv, nodemon, cors, bcryptjs, jsonwebtoken)
+- [x] Project documentation set created (24 files)
+- [x] Atlas connection fixed (standard non-SRV connection string)
+- [x] `index.js` with `express.json()` + `cors({origin: CLIENT_URL})` +
+      `GET /api/health`
+- [x] Frontend scaffolded (Vite + React 19 + ESLint; `frontend/`)
+- [x] `package.json` scripts: `dev` / `start` / `test`
+- [ ] Root `.gitignore` merge + `LICENSE` + lint tooling
+- [ ] Delete stray `config/dns.js` + uninstall junk `dns` npm package
 
-## Phase 1 — Authentication and Roles
+## Phase 0.5 — Architecture + View Overhaul 📍 current
 
-- [ ] User model, register/login endpoints, password hashing
-- [ ] JWT/session middleware, RBAC middleware
-- [ ] Login page, auth context, protected routes
+Declared ADR-0013 — rewrite, not patch. Details:
+[ARCHITECTURE.md](ARCHITECTURE.md) Part 2.
+
+**Backend (architecture v2):**
+- [ ] Normalize names: `model/`→`models/`, `controller/`→`controllers/`,
+      `genrateToken.js`→`generateToken.js`
+- [ ] Central error handler + `asyncHandler` wrapper (kill try/catch boilerplate)
+- [ ] Validation middleware layer (zod) before controllers
+- [ ] `config/index.js` — validate env at boot (fail fast if `JWT_SECRET` missing)
+- [ ] Move `logout` to a real design (Bearer has no server state — document or switch to HttpOnly cookies)
+- [ ] Supertest-based tests against exported `app` (no live server needed)
+
+**Frontend (view v2):**
+- [ ] Design tokens (palette/type/spacing as CSS vars)
+- [ ] Feature-first structure: `app/`, `api/`, `features/{auth,events,submissions,judging,leaderboard}`, `components/ui/`
+- [ ] Evidence badge system (Verified / Claimed / Inferred — icon + text)
+- [ ] AI-suggested vs judge-entered visual distinction
+- [ ] Mobile-first scorecard shell
+- [ ] **Fold in reference GitHub project** once link is provided (adopt/adapt/reject → ADRs)
+
+## Phase 1 — Authentication and Roles 🟡 backend done, frontend pending
+
+- [x] User model, register/login endpoints, password hashing (bcryptjs)
+- [x] JWT middleware (`protect`) + RBAC middleware (`requireRole`)
+- [x] 12 API tests passing (`node --test`)
+- [ ] Login page, auth context, Axios interceptor, protected routes
+- [ ] Wire `api.js` (`VITE_API_URL=http://localhost:3000/api`)
 
 ## Phase 2 — Event Management
 
@@ -35,7 +63,7 @@ mirrors the roadmap in [README.md](../README.md); detailed tasks live in
 ## Phase 4 — Judging and Scorecards
 
 - [ ] Evaluation model (one per judge per submission)
-- [ ] `scoringService` with unit-tested weighted math
+- [ ] `services/scoringService.js` with unit-tested weighted math
 - [ ] Draft → submitted workflow, evaluation history
 - [ ] JudgeEvaluation scorecard UI with running total
 
@@ -76,17 +104,18 @@ mirrors the roadmap in [README.md](../README.md); detailed tasks live in
 
 ## Milestone Targets
 
-| Milestone | Deliverable | Gate |
-| --- | --- | --- |
-| M0 | Runnable skeleton | `/api/health` returns ok, DB connects |
-| M1 | Auth works end-to-end | Roles enforced in integration tests |
-| M2 | Events with custom rubrics | Σ weight validation enforced |
-| M3 | Submissions flowing | Teams can submit, judges can read |
-| M4 | Judging live | Scorecards + scoring service tested |
-| M5 | Results visible | Leaderboard matches hand-computed totals |
-| M6 | AI assist enabled | Reports typed, uncertain, overridable |
-| M7 | Deep evidence | GitHub analysis with authorization |
-| M8 | Production | Deployed, monitored, security checklist done |
+| Milestone | Deliverable | Gate | Status |
+| --- | --- | --- | --- |
+| M0 | Runnable skeleton | `/api/health` returns ok, DB connects | ✅ 2026-10-20 |
+| M1 | Auth works end-to-end | Roles enforced in tests | 🟡 backend ✅ / frontend pending |
+| M1.5 | Architecture + view overhaul | v2 layers + feature-first UI landed | ⬜ current |
+| M2 | Events with custom rubrics | Σ weight validation enforced | ⬜ |
+| M3 | Submissions flowing | Teams can submit, judges can read | ⬜ |
+| M4 | Judging live | Scorecards + scoring service tested | ⬜ |
+| M5 | Results visible | Leaderboard matches hand-computed totals | ⬜ |
+| M6 | AI assist enabled | Reports typed, uncertain, overridable | ⬜ |
+| M7 | Deep evidence | GitHub analysis with authorization | ⬜ |
+| M8 | Production | Deployed, monitored, security checklist done | ⬜ |
 
 See [MILESTONES.md](MILESTONES.md) for the narrative version.
 
@@ -95,3 +124,4 @@ See [MILESTONES.md](MILESTONES.md) for the narrative version.
 - [TASKS.md](TASKS.md) — executable task list
 - [BACKLOGS.md](BACKLOGS.md) — full feature inventory
 - [STEPS.md](STEPS.md) — zero-to-production commands
+- [DECISIONS.md](DECISIONS.md) — ADR-0013 (why the overhaul)

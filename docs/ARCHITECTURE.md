@@ -1,111 +1,174 @@
 # Architecture — HackJudge AI
 
-This document describes the system architecture of HackJudge AI: an AI-powered
-hackathon project evaluation and judging assistant built with the MERN stack.
+> **Point of view:** this document now describes **two architectures** —
+> the one **actually running today** (v1, verified against the code) and the
+> **overhaul target** (v2) that the project is being rewritten toward:
+> a full architecture + view (UI) rebuild. See
+> [DECISIONS.md](DECISIONS.md) ADR-0013.
 
-## High-Level Overview
+---
+
+## Part 1 — Architecture v1: What Runs Today (verified)
 
 ```
-React Client
+frontend/  (React 19 + Vite 8, ESM)
     |
-    | HTTPS / JSON
+    | HTTP / JSON   (VITE_API_URL → http://localhost:3000/api)
     v
-Express.js REST API (Node.js)
+backend/  index.js (Node ESM, Express 5)
     |
-    +---- Authentication & Authorization
-    |
-    +---- Events and Submissions
-    |
-    +---- Judging and Score Calculation
-    |
-    +---- AI Evaluation Service (optional)
-    |          |
-    |          +---- LLM API
-    |          +---- Authorized Repository Analysis
+    +-- 1. express.json({ limit: '1mb' })
+    +-- 2. cors({ origin: CLIENT_URL })
+    +-- 3. GET /api/health
+    +-- 4. /api/auth  → routes/auth.routes.js
+    |        +-- controller/auth.controller.js
+    |        +-- middleware/auth.middleware.js  (protect / requireRole)
+    |        +-- model/user.model.js
+    |        +-- utils/genrateToken.js          (JWT, 7-day expiry)
+    +-- 5. 404 handler (JSON error shape)
     |
     v
-MongoDB (Mongoose)
+MongoDB Atlas  (Mongoose 9, standard non-SRV connection string)
+    collections: users  ✅ implemented
+                 events, submissions, evaluations, aianalyses  ← planned
 ```
 
-## Layers
+### v1 module map (as built)
 
-### 1. Client (React)
+| File | Responsibility | Status |
+| --- | --- | --- |
+| `backend/index.js` | App wiring: middleware order, health, routes, 404 | ✅ |
+| `backend/config/db.js` | Mongoose connect from `MONGO_URL`, fail-fast exit | ✅ |
+| `backend/model/user.model.js` | User schema: name, email (unique), password (`select:false`), role enum, timestamps | ✅ |
+| `backend/controller/auth.controller.js` | register / login / logout / me, bcrypt hashing, error shapes | ✅ |
+| `backend/middleware/auth.middleware.js` | `protect` (Bearer JWT) + `requireRole` (RBAC) | ✅ |
+| `backend/routes/auth.routes.js` | `/api/auth/*` route table | ✅ |
+| `backend/utils/genrateToken.js` | `jwt.sign({id}, JWT_SECRET, {expiresIn:'7d'})` | ✅ |
+| `backend/tests/auth.test.js` | 12 API tests (node:test runner) | ✅ 12/12 pass |
+| `backend/config/dns.js` | Stray debug file | 🗑 delete pending |
+| `backend/services/*` | scoring + AI services | ⬜ Phase 4/6 |
 
-- Single-page application served statically in production.
-- Pages: Login, Dashboard, ProjectDetails, JudgeEvaluation, Leaderboard.
-- Talks to the API through a shared Axios client (`client/src/api.js`) using
-  `VITE_API_URL`.
-- Holds **no secrets**. Anything prefixed with `VITE_` is bundled into the
-  browser.
+### v1 runtime facts
 
-### 2. API (Express.js / Node.js)
+- **Entry:** `index.js` (ESM, `"type": "module"` — not `server.js`)
+- **Scripts:** `npm run dev` (nodemon) · `npm start` · `npm test` (`node --test "tests/*.test.js"`)
+- **Port:** `PORT=3000` (not 5000)
+- **Env vars (4):** `PORT`, `MONGO_URL`, `JWT_SECRET`, `CLIENT_URL`
+- **Frontend:** `frontend/` (not `client/`) — Vite template only; `api.js`, auth pages not yet built
+- **Known v1 debt:** no central error handler (try/catch repeated in every controller), no `services/` layer, no rate limiting, no request validation middleware, `logout` clears a cookie that is never set (token is localStorage/Bearer), typo'd names kept for compatibility (`genrateToken.js`, folder `model/` singular)
 
-REST endpoints under `/api`. Middleware concerns, in order:
+---
 
-1. CORS restriction to the known frontend origin.
-2. JSON body parsing (1 MB limit).
-3. Authentication (JWT or secure session).
-4. Role-based authorization (organizer / judge / team).
-5. Route handler.
+## Part 2 — Architecture v2: The Overhaul (target)
 
-Internal modules:
+**Principle of the rewrite:** same MERN bones, but strict layering, one place
+for every concern, and a view architecture that can carry the judging UI.
 
-| Module | Responsibility |
-| --- | --- |
-| `routes/` + `controllers/` | HTTP surface: request validation, response shaping |
-| `middleware/` | auth, RBAC, rate limits, error handling |
-| `models/` | Mongoose schemas (User, Event, Submission, Evaluation, AIAnalysis) |
-| `services/scoringService.js` | Weighted score computation, leaderboard ranking |
-| `services/aiEvaluationService.js` | Builds prompts, calls the LLM API, stores reports |
-| `config/` | DB connection, env loading |
-| `utils/` | Helpers (slugify, pagination, validators) |
-
-### 3. Data (MongoDB via Mongoose)
-
-Collections: `users`, `events`, `submissions`, `evaluations`,
-`aianalyses`. See [SPECIFICATION.md](SPECIFICATION.md) for field-level detail
-and [PROJECT.md](PROJECT.md) for the entity summary.
-
-## Key Flows
-
-### Evaluation flow
-
-1. Team submits a project to an event.
-2. Organizer-assigned judges see the submission on their dashboard.
-3. A judge requests AI analysis (optional) → `aiEvaluationService` gathers the
-   submission payload, calls the LLM, and stores an `AIAnalysis` document.
-4. The judge reviews the report, adjusts criterion-level scores, and submits an
-   `Evaluation`.
-5. `scoringService` computes the weighted total and the leaderboard.
-
-### Scoring formula
-
-For a criterion scored 0–10 with weight `w`:
+### Backend target — strict 5-layer pipeline
 
 ```
-contribution = (score / 10) × weight
-final = Σ contributions            // out of 100
+HTTP request
+   │
+   ▼
+[pre-router middleware]  cors → json → (future: helmet, rate-limit)
+   │
+   ▼
+[routes]        thin: path + middleware stack only
+   │
+   ▼
+[controllers]   parse+validate input, call service, shape response
+   │              no business logic, no mongoose queries
+   ▼
+[services]      business rules: scoringService, aiEvaluationService,
+   │              authService…  pure functions where possible (testable)
+   ▼
+[models]        mongoose schemas only
+   │
+   ▼
+[error handler] ONE central async error handler —
+                  app.use((err, req, res, next) => …)
 ```
 
-Example: 8/10 on a 20%-weighted criterion contributes 16 points.
+**v2 moves (delta from v1):**
 
-## Architecture Rules
+1. **Naming normalization:** `model/`→`models/`, `controller/`→`controllers/`,
+   `genrateToken.js`→`generateToken.js`, routes `auth.route.js` (consistent `*.route.js`).
+2. **Central error handler** — kill per-controller try/catch boilerplate; use
+   an `asyncHandler` wrapper + single JSON error middleware.
+3. **Validation middleware** (zod — already a Vite-side dep candidate) before
+   controllers; controllers never do `if (!name)` checks again.
+4. **`services/` layer** lands with Phase 4 scoring and Phase 6 AI —
+   pure functions, unit-testable without DB.
+5. **Config module** — `config/index.js` reads/validates env once at boot
+   (fails fast if `JWT_SECRET` missing instead of crashing at first login).
+6. **Test layout** — `tests/unit/`, `tests/integration/`, supertest against an
+   exported `app` (no live-server dependency), per [TESTING.md](TESTING.md).
 
-- **AI runs on the server only.** `LLM_API_KEY` and `GITHUB_TOKEN` never reach
-  the client bundle or browser code.
-- **Judges are final.** AI output is a recommendation layer, never an
-  authority; the API always accepts judge overrides.
-- **Evidence is typed.** Stored AI reports distinguish verified evidence,
-  team-provided claims, and AI inferences.
-- **Submissions and repo content are untrusted input** — parsed, never
-  executed, never injected into prompts as instructions.
+### Frontend target — the "view" overhaul
 
-## Current State
+```
+frontend/src/
+├── main.jsx               # boot: providers, router
+├── app/                   # router, layout shells, providers (Auth)
+├── api/                   # axios instance + interceptors + per-resource modules
+│   ├── client.js
+│   └── auth.api.js / events.api.js / …
+├── features/              # feature-first, not type-first
+│   ├── auth/              # Login.jsx, useAuth, auth.forms
+│   ├── events/            # list, rubric editor
+│   ├── submissions/       # form, ProjectDetails
+│   ├── judging/           # scorecard, evidence badges, AI report panel
+│   └── leaderboard/
+├── components/ui/         # design system primitives (Button, Card, Badge…)
+├── styles/                # design tokens (CSS vars): color, spacing, type
+└── hooks/  context/  utils/
+```
 
-The repository is at the scaffold stage:
+**View rules (the visual contract):**
 
-- `backend/` — dependencies installed (Express 5, Mongoose 9, MongoDB driver 7,
-  dotenv, nodemon); application source not yet written.
-- `frontend/` — reserved for the React client (Vite template).
+- **Design tokens first** — one palette/type scale in CSS variables (or Tailwind
+  config — ADR-0011 selection happens at UI kickoff); no hard-coded hex in components.
+- **Evidence is a visual language:** Verified / Claimed / Inferred badges use
+  icon + text label, never color alone (accessibility).
+- **AI vs. human must be legible at a glance:** AI-suggested values styled
+  distinctly (dashed outline + "AI" chip) until a judge explicitly accepts them.
+- **Scorecard = the hero screen:** running weighted total always visible;
+  one-column on mobile for judges scoring on phones.
+- **Responsive + keyboard-complete** before Phase 9 (BL-30/BL-31).
 
-See [ROADMAP.md](ROADMAP.md) and [TASKS.md](TASKS.md) for what comes next.
+### Reference project slot
+
+> When the reference GitHub repository link is provided, this section will be
+> reconciled with its architecture and UI approach — mapping what we adopt,
+> what we adapt, and what we explicitly reject (with reasons in
+> [DECISIONS.md](DECISIONS.md)).
+
+---
+
+## Non-Negotiable Rules (both versions)
+
+1. **AI runs server-side only.** `LLM_API_KEY` / `GITHUB_TOKEN` never reach
+   the client bundle. Anything `VITE_`-prefixed is public.
+2. **Judges are final.** AI output is a recommendation layer; the API always
+   accepts judge overrides.
+3. **Evidence is typed.** Reports distinguish verified evidence, team claims,
+   and AI inferences.
+4. **Submissions are untrusted input** — parsed, never executed, never
+   injected into prompts as instructions.
+5. **Scoring math lives in exactly one module** (ADR-0005) — controllers,
+   UI, and exports all defer to it.
+
+## Scoring formula (unchanged by the overhaul)
+
+```
+contribution = (score / 10) × weight        // score 0–10, weight in %
+final        = Σ contributions               // out of 100
+```
+Example: 8/10 on a 20%-weighted criterion = 16 points.
+
+## Related Documents
+
+- [DECISIONS.md](DECISIONS.md) — ADR-0013 declares the overhaul
+- [ROADMAP.md](ROADMAP.md) — how the overhaul is sequenced
+- [SPECIFICATION.md](SPECIFICATION.md) — field/endpoint level detail
+- [TASKS.md](TASKS.md) — the work items behind every v2 move

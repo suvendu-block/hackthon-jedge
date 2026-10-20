@@ -4,36 +4,57 @@ Actionable task breakdown grouped by workstream. Each task maps to backlog
 items (`BL-xx`) and requirements (`FR-x`). Check tasks off as they complete and
 record the change in [CHANGELOG.md](CHANGELOG.md).
 
-## Workstream 0 — Project Setup
+## Workstream 0 — Project Setup ✅ done (2026-10-19/20)
 
-- [ ] Add root `.gitignore` (Node, env files, build output, OS files)
+- [x] Root `.gitignore` (per-app `.gitignore`s exist in `backend/` + `frontend/`;
+      root-level merge still open)
 - [ ] Add `LICENSE` (decision needed — none selected yet) *(BL-32)*
-- [ ] Add ESLint + Prettier to backend and frontend *(BL-23)*
-- [ ] Create `backend/server.js` with Express app, CORS, JSON limit, health
-      route `GET /api/health` *(BL-16)*
-- [ ] Add backend scripts: `start` (node server.js), `dev` (nodemon server.js)
-- [ ] Create `backend/config/db.js` — Mongoose connection from `MONGODB_URI`
+- [ ] Add ESLint + Prettier to backend and frontend *(BL-23; ESLint ships
+      with the Vite template in `frontend/` — config backend separately)*
+- [x] `backend/index.js` with Express app, CORS (`CLIENT_URL`), JSON limit,
+      health route `GET /api/health` *(BL-16)*
+- [x] Backend scripts: `start` (node index.js), `dev` (nodemon index.js),
+      `test` (`node --test "tests/*.test.js"` — **quoted glob required**)
+- [x] `backend/config/db.js` — Mongoose connection from **`MONGO_URL`**
+      (standard non-SRV string; SRV blocked by local DNS)
 - [ ] Create `backend/.env.example` documenting required variables
-- [ ] Scaffold frontend: `npm create vite@latest client -- --template react`
+- [x] Frontend scaffolded: `npm create vite@latest frontend -- --template react`
+      (React 19 + Vite 8 + ESLint)
 - [ ] Install client deps: axios, react-router-dom
-- [ ] Create `client/src/api.js` Axios instance *(SPEC §7)*
+- [ ] Create `frontend/src/api/client.js` Axios instance + Bearer
+      interceptor *(SPEC §7)*
 - [ ] Choose styling framework: Tailwind **or** Bootstrap, record in
       ADR-0011
+- [x] Add `JWT_SECRET` + `CLIENT_URL` to `.env`
+- [ ] Housekeeping: delete `config/dns.js`, `npm uninstall dns`
 
-## Workstream 1 — Authentication and Roles *(FR-1…FR-3)*
+## Workstream 0.5 — Architecture + View Overhaul (ADR-0013)
 
-- [ ] `User` model: name, email (unique), passwordHash, role, createdAt
-- [ ] Install bcrypt; implement password hashing on register
-- [ ] `POST /api/auth/register` with validation (email format, unique,
-      password ≥ 8 chars)
-- [ ] `POST /api/auth/login` issuing JWT (or secure session)
-- [ ] Auth middleware: verify token, attach `req.user`
-- [ ] RBAC middleware: `requireRole("organizer" | "judge" | "team")`
+- [ ] Normalize names (`models/`, `controllers/`, `generateToken.js`)
+- [ ] Central error handler + `asyncHandler` wrapper
+- [ ] Validation middleware (zod) before controllers
+- [ ] `config/index.js` fail-fast env validation at boot
+- [ ] Frontend feature-first layout + design tokens + `components/ui/`
+- [ ] Evidence badges + AI-suggested styling (visual contract)
+- [ ] Supertest against exported `app` (no live server needed)
+- [ ] Fold in reference GitHub repo (adopt/adapt/reject → ADRs)
+
+## Workstream 1 — Authentication and Roles *(FR-1…FR-3)* 🟡 backend done
+
+- [x] `User` model: name, email (unique), **password** (bcrypt hash,
+      `select:false`), role enum, timestamps — `model/user.model.js`
+- [x] bcrypt (bcryptjs) hashing on register (10 rounds)
+- [x] `POST /api/auth/register` with validation (required fields, password
+      ≥ 8 chars, duplicate email → 400)
+- [x] `POST /api/auth/login` issuing JWT (7-day expiry, Bearer)
+- [x] Auth middleware: `protect` verifies token, attaches `req.user`
+- [x] RBAC middleware: `requireRole("organizer" | "judge" | "team")`
 - [ ] Rate limit `/api/auth/*` *(NFR-3)*
 - [ ] Client: Login page, token storage, Axios auth interceptor, 401 handling
 - [ ] Client: auth context + protected routes
-- [ ] Tests: register/login happy path, duplicate email, bad password, role
-      enforcement
+- [x] Tests: register/login happy path, duplicate email, bad password,
+      token required, garbage token — **12/12 passing** (`tests/auth.test.js`)
+- [ ] Tests: role enforcement (requireRole deny matrix)
 
 ## Workstream 2 — Events and Rubric *(FR-4…FR-7)*
 
