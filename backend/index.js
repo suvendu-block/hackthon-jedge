@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
+import { notFound, errorHandler } from './middleware/error.middleware.js';
 
 
 
@@ -26,6 +27,10 @@ app.get('/api/health', (req, res) => {
 
 // routes
 app.use('/api/auth',authRoutes);
+
+// 404 + central error handler — must come AFTER all routes
+app.use(notFound);
+app.use(errorHandler);
 
 
 

@@ -60,7 +60,7 @@ test('register: short password rejected', async () => {
     const { status, data } = await api('/auth/register', {
         method: 'POST', body: { ...validUser(), password: '123' }
     });
-    assert.equal(status, 400);
+    assert.equal(status, 422);   // zod catches it at the route now
     assert.match(data.error.message, /at least 8/i);
 });
 
@@ -68,8 +68,16 @@ test('register: missing fields rejected', async () => {
     const { status, data } = await api('/auth/register', {
         method: 'POST', body: { email: `x+${stamp}@example.com` }
     });
-    assert.equal(status, 400);
-    assert.equal(data.error.code, 'MISSING FIELDS');
+    assert.equal(status, 422);
+    assert.equal(data.error.code, 'VALIDATION_ERROR');
+});
+
+test('register: unknown extra field rejected (strict schema)', async () => {
+    const { status, data } = await api('/auth/register', {
+        method: 'POST', body: { ...validUser(), emial: 'typo-field@x.com' }
+    });
+    assert.equal(status, 422);
+    assert.equal(data.error.code, 'VALIDATION_ERROR');
 });
 
 // LOGIN 

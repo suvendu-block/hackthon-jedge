@@ -1,0 +1,409 @@
+/* 
+   HackJudge AI — Login
+   Aesthetic: "The Night Judging Desk"
+   ink-navy darkness · amber lamplight · evidence constellation
+   Instrument Serif (display) + Archivo (body) + IBM Plex Mono (labels)
+   */
+
+.login {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: left;
+    font-family: var(--font-body);
+    color: var(--c-paper);
+    background: var(--c-ink);
+    overflow: hidden;
+}
+
+/* background stack  */
+
+.login-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* drifting evidence-constellation */
+.login-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.9;
+}
+
+/* the lamp — warm amber pool of light, upper-left, like a desk lamp */
+.login-lamp {
+    position: absolute;
+    width: 90vmax;
+    height: 90vmax;
+    top: -35vmax;
+    left: -25vmax;
+    background: radial-gradient(
+        closest-side,
+        rgba(242, 169, 59, 0.16),
+        rgba(242, 169, 59, 0.05) 45%,
+        transparent 70%
+    );
+    animation: lampBreathe 9s ease-in-out infinite;
+}
+
+@keyframes lampBreathe {
+    0%, 100% { opacity: 0.85; }
+    50%      { opacity: 1; }
+}
+
+/* cool counter-glow, lower-right — moonlight through a window */
+.login-cool {
+    position: absolute;
+    width: 60vmax;
+    height: 60vmax;
+    right: -22vmax;
+    bottom: -25vmax;
+    background: radial-gradient(
+        closest-side,
+        rgba(66, 94, 153, 0.20),
+        transparent 65%
+    );
+}
+
+/* ledger grid — judges keep books; faint ruled paper */
+.login::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to right, rgba(239, 230, 211, 0.045) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(239, 230, 211, 0.045) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 75% at 50% 45%, #000 25%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 75% at 50% 45%, #000 25%, transparent 100%);
+}
+
+/* film grain — SVG noise, keeps the darkness from feeling flat */
+.login-grain {
+    position: absolute;
+    inset: -50%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    animation: grainShift 0.9s steps(2) infinite;
+}
+
+@keyframes grainShift {
+    0%   { transform: translate(0, 0); }
+    50%  { transform: translate(-2%, 1%); }
+    100% { transform: translate(1%, -1.5%); }
+}
+
+/* vignette — eyes drawn to the center */
+.login-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse 120% 90% at 50% 50%,
+        transparent 55%,
+        rgba(4, 6, 12, 0.55) 100%
+    );
+}
+
+/*  ghost score watermark  */
+
+.login-ghost {
+    position: absolute;
+    top: -3%;
+    right: 3%;
+    z-index: 0;
+    font-family: var(--font-display);
+    font-size: clamp(160px, 26vw, 340px);
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(242, 169, 59, 0.22);
+    user-select: none;
+    pointer-events: none;
+    animation: ghostDrift 11s ease-in-out infinite;
+}
+
+@keyframes ghostDrift {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(14px); }
+}
+
+/*  floating evidence chips  */
+
+.login-chips {
+    position: absolute;
+    left: clamp(24px, 7vw, 120px);
+    bottom: clamp(28px, 9vh, 96px);
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    pointer-events: none;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--c-paper-dim);
+    background: rgba(11, 17, 32, 0.72);
+    border: 1px solid var(--c-hairline);
+    border-radius: 999px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: chipFloat 7s ease-in-out infinite;
+}
+
+.chip i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+}
+
+/* the product's three evidence types — its whole philosophy, on the wall */
+.chip--verified  { animation-delay: 0s; }
+.chip--verified i { background: var(--c-verdant); box-shadow: 0 0 8px var(--c-verdant); }
+.chip--claim     { animation-delay: -2.3s; margin-left: 22px; }
+.chip--claim i   { background: var(--c-amber); box-shadow: 0 0 8px var(--c-amber); }
+.chip--inferred  { animation-delay: -4.6s; margin-left: 8px; }
+.chip--inferred i {
+    background: var(--c-slate-blue);
+    box-shadow: 0 0 8px var(--c-slate-blue);
+    border-radius: 1px;                 /* square = machine-made */
+}
+
+@keyframes chipFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-9px); }
+}
+
+/*  the card — dark glass on the desk  */
+
+.login-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 392px;
+    padding: 38px 34px 34px;
+    background: linear-gradient(165deg, rgba(13, 19, 34, 0.88), rgba(8, 12, 22, 0.92));
+    border: 1px solid rgba(239, 230, 211, 0.12);
+    border-radius: 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(242, 169, 59, 0.35);   /* amber hairline on top */
+    animation: cardEnter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cardEnter {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.login-eyebrow {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    color: var(--c-amber);
+    margin-bottom: 18px;
+}
+
+.login-card h1 {
+    margin: 0 0 8px;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 44px;
+    line-height: 1.05;
+    letter-spacing: -0.5px;
+    color: var(--c-paper);
+}
+
+.login-card h1 em {
+    font-style: italic;
+    color: var(--c-amber);
+}
+
+.login-card h2 {
+    margin: 0 0 28px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--c-paper-dim);
+}
+
+/*  form  */
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.login-field span {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--c-paper-dim);
+}
+
+.login-field input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: var(--font-body);
+    color: var(--c-paper);
+    background: rgba(239, 230, 211, 0.045);
+    border: 1px solid rgba(239, 230, 211, 0.14);
+    border-radius: 9px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    box-sizing: border-box;
+}
+
+.login-field input::placeholder {
+    color: rgba(168, 158, 136, 0.5);
+}
+
+.login-field input:hover {
+    border-color: rgba(239, 230, 211, 0.25);
+}
+
+.login-field input:focus {
+    border-color: var(--c-amber);
+    background: rgba(242, 169, 59, 0.05);
+    box-shadow: 0 0 0 3px rgba(242, 169, 59, 0.16);
+}
+
+.login-error {
+    margin: 0;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--c-danger);
+    background: rgba(255, 133, 119, 0.08);
+    border-left: 2px solid var(--c-danger);
+    border-radius: 0 6px 6px 0;
+}
+
+/*  submit — the amber verdict stamp  */
+
+.login-submit {
+    width: 100%;
+    margin-top: 6px;
+    padding: 13px 18px;
+    font-size: 14px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #14100a;
+    background: linear-gradient(180deg, #ffc45e, var(--c-amber) 55%, var(--c-amber-deep));
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    box-shadow: 0 6px 22px rgba(242, 169, 59, 0.28);
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+}
+
+.login-submit:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 30px rgba(242, 169, 59, 0.4);
+    filter: brightness(1.04);
+}
+
+.login-submit:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.login-submit:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* keyboard focus stays visible on dark */
+.login-submit:focus-visible {
+    outline: 2px solid var(--c-paper);
+    outline-offset: 3px;
+}
+
+/*  already-logged-in state  */
+
+.login-already {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    font-family: var(--font-body);
+    color: var(--c-paper, #efe6d3);
+    background: var(--c-ink, #070b14);
+}
+
+.login-already a {
+    color: var(--c-amber, #f2a93b);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(242, 169, 59, 0.4);
+    padding-bottom: 2px;
+}
+
+.login-already a:hover {
+    border-bottom-color: var(--c-amber, #f2a93b);
+}
+
+/*  responsive  */
+
+@media (max-width: 900px) {
+    .login-chips { display: none; }        /* constellation + lamp carry mobile */
+    .login-ghost { font-size: clamp(120px, 38vw, 220px); opacity: 0.7; }
+}
+
+@media (max-width: 480px) {
+    .login-card { padding: 30px 22px 26px; }
+    .login-card h1 { font-size: 36px; }
+}
+
+/* users who hate motion get the still frame */
+@media (prefers-reduced-motion: reduce) {
+    .login-lamp,
+    .login-grain,
+    .login-ghost,
+    .login-chips .chip,
+    .login-card {
+        animation: none;
+    }
+}

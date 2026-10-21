@@ -1,0 +1,56 @@
+/* ============================================================
+   HackJudge AI — Design Tokens
+   The Night Judging Desk: ink-navy darkness · amber lamplight
+   Every page/component consumes these — never hardcode colors.
+   Section order: colors → typography → spacing → radii →
+                  shadows → z-index
+   ============================================================ */
+
+:root {
+    /* ---------- colors ---------- */
+    --c-ink: #070b14;                       /* page background */
+    --c-ink-2: #0b1120;                     /* raised surface */
+    --c-paper: #efe6d3;                     /* primary text */
+    --c-paper-dim: #a89e88;                 /* secondary text */
+    --c-amber: #f2a93b;                     /* accent — lamplight */
+    --c-amber-deep: #c97f1b;                /* accent pressed/hover */
+    --c-verdant: #8fd3a8;                   /* verified evidence */
+    --c-slate-blue: #8fa3c8;                /* inferred (machine) */
+    --c-danger: #ff8577;                    /* errors */
+    --c-hairline: rgba(239, 230, 211, 0.10); /* 1px borders on dark */
+
+    /* ---------- typography ---------- */
+    --font-display: 'Instrument Serif', serif;   /* editorial headings */
+    --font-body: 'Archivo', sans-serif;          /* UI + body */
+    --font-mono: 'IBM Plex Mono', monospace;     /* labels, data, chips */
+
+    --fs-display: 44px;
+    --fs-h2: 14px;
+    --fs-body: 15px;
+    --fs-label: 10.5px;                     /* uppercase mono labels */
+
+    /* ---------- spacing (4px scale) ---------- */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 24px;
+    --sp-6: 32px;
+    --sp-7: 40px;
+    --sp-8: 64px;
+
+    /* ---------- radii ---------- */
+    --r-sm: 9px;                            /* inputs, buttons */
+    --r-md: 14px;                           /* cards */
+    --r-pill: 999px;                        /* chips */
+
+    /* ---------- shadows ---------- */
+    --shadow-card: 0 30px 80px rgba(0, 0, 0, 0.55);
+    --shadow-amber: 0 6px 22px rgba(242, 169, 59, 0.28);
+    --shadow-amber-lift: 0 10px 30px rgba(242, 169, 59, 0.4);
+
+    /* ---------- z-index ---------- */
+    --z-bg: 0;                              /* background layers */
+    --z-card: 1;                            /* foreground panels */
+    --z-page: 5;                            /* full-page screens */
+}
