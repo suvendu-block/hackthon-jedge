@@ -1,4 +1,3 @@
-import React from 'react';
 import {BrowserRouter,Routes,Navigate, Route} from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext.jsx';
 import Login from '@/features/auth/Login.jsx';
@@ -6,6 +5,7 @@ import Dashboard from './Dashboard.jsx';
 import EventsPage from '@/features/events/EventsPage.jsx';
 import SubmissionsPage from '@/features/submissions/SubmissionsPage.jsx';
 import ScorecardPage from '@/features/judging/ScorecardPage.jsx';
+import LeaderboardPage from '@/features/leaderboard/LeaderboardPage.jsx';
 
 
 
@@ -45,6 +45,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SubmissionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/events/:eventId/leaderboard'
+          element={
+            <ProtectedRoute>
+              <LeaderboardPage />
             </ProtectedRoute>
           }
         />

@@ -60,5 +60,6 @@ export function AuthProvider({children}) {
 
 
 
-// use this hook anywhere : Now
+// the hook for reading it — keeping it here avoids a second file just for this
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

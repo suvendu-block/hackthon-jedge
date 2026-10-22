@@ -6,6 +6,120 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (2026-10-22) — Phase 5: leaderboard, release gating, CSV export
+
+- **Phase 5 — Leaderboard & Export.** `buildLeaderboard` joins
+  `services/scoringService.js` (ADR-0005 kept one authority for all scoring
+  math): per submission, the mean of its **submitted** scorecards rounded to
+  1dp; ties break average → judged count → project name → submission id, and
+  unjudged rows sit last with null rank/average (a blank isn't a zero).
+- **Release gating.** Event gains `resultsReleased` + `releasedAt`.
+  Standings are sealed for judges *and* teams — zero scores in the payload —
+  until the organizer releases; judges are deliberately gated too so nobody
+  benchmarks against midway standings. The organizer gets a live preview.
+  `POST /events/:eventId/leaderboard/release` requires owner + `closed`
+  event; after release the event can no longer change status
+  (`RESULTS_LOCKED`), and a second press is `ALREADY_RELEASED`.
+- **Leaderboard page** (`/events/:eventId/leaderboard`): rank table with
+  per-judge score chips, judged x/y coverage, sealed screen, preview strip +
+  release button (confirm), released strip. Event cards gained a quiet
+  **results** link for every role, hidden while the event is a draft.
+- **CSV export** `GET /events/:eventId/leaderboard/csv` — BOM + CRLF, one
+  column per assigned judge in assignment order, proper quoting; same
+  gating (`RESULTS_SEALED` for non-organizers pre-release). The frontend
+  fetches it as a blob so the bearer token rides along, and CORS now
+  exposes `Content-Disposition` so the download keeps the server's filename.
+- **Tests: 95 backend checks** (8 new release-lifecycle API tests + 8
+  `buildLeaderboard` units with hand-checked averages), and the UI journey
+  grew to **102 checks**: judge2 assigned mid-event scores MediQueue to
+  hand-computed 50 (5/10×60 + 5/10×40), organizer previews 82 vs 50,
+  releases through the confirm, downloads the CSV as a real file, and the
+  team reads the released standings.
+
+### Fixed (2026-10-22) — bugs found while testing Phase 5
+
+- **A slow load could wipe a judge's scores.** `ScorecardPage`'s mount
+  effect had no `ignore` guard; under React StrictMode it fires two
+  `getScorecard` calls, and the second (stale) response re-hydrated
+  `scores` from the empty server draft — silently resetting sliders the
+  judge had already set, disabling submit. It never surfaced while the API
+  answered in milliseconds; Atlas latency widened the race until the UI
+  journey hit it twice. Now guarded with the same `ignore` flag the list
+  pages use. (Found by `e2e/ui-journey.mjs`, which is exactly the kind of
+  timing bug a browser walk catches and unit tests can't.)
+
+### Added (2026-10-22) — Phases 2/3/4: events, submissions, judging
+
+- **Phase 2 — Events + rubrics.** Event model with an embedded rubric whose
+  weights must sum to 100 (enforced in zod, mongoose, and the service layer).
+  Organizer CRUD, judge assignment (`GET /api/users/judges` directory),
+  status flow `draft → published → closed`. Rubric editor UI with a live
+  weight meter and a "spread evenly" fix-up button.
+- **Phase 3 — Submissions.** One entry per team per event (unique index),
+  `http:`/`https:`-only link allowlist (blocks `javascript:`/`data:` before it
+  reaches a judge's browser), role-scoped visibility (teams see only their
+  own), lock when the event closes. Submission form with dynamic link rows,
+  edit and withdraw.
+- **Phase 4 — Judging.** Evaluation model (unique per judge + submission),
+  draft → submitted workflow, `GET /evaluations/mine` queue, and
+  `services/scoringService.js` holding all scoring math per ADR-0005
+  (`contribution = (score/10) × weight`, `final = Σ`). Scorecard page with
+  0–10 sliders, running total, and per-criterion contribution chips.
+- **Tests: 79 backend checks** (`node --test "tests/*.test.js"`, 12 of them
+  pure scoring-math units) — plus a live API walkthrough
+  (`scripts/e2e-walkthrough.mjs`, 18 checks, server must be on :3000).
+
+### Fixed (2026-10-22) — bugs found by walking the UI as a real user
+
+Found by `e2e/ui-journey.mjs` (Playwright drives the real screens — 79/79
+checks across all four roles):
+
+- **Organizers could never publish.** The API accepted `PUT /events/:id`
+  `status`, but the events page exposed no publish/close control, so every
+  event dead-ended as a draft (teams got `NOT_PUBLISHED`, judges got
+  `NOT_PUBLISHED`). Card now shows **publish** while draft and **close
+  judging** while live, both behind a confirm.
+- **Teams saw an empty docket forever.** `listEvents` put every
+  non-organizer into `{ judges: userId }` — a team is never in `judges`, so
+  the list was always empty and there was no path to a submissions page.
+  Teams now get `{ status: { $ne: 'draft' } }` (open events), and
+  `getEvent` lets a team read an event once it's published.
+- **Judge chips rendered blank.** `addJudge`/`removeJudge`/`updateEvent`
+  returned the event with raw ObjectIds (never populated) while the UI
+  draws judge names straight from the response — chips showed only the `×`
+  until a manual refresh. Responses now populate `organizer` + `judges`.
+- **A wrong password showed nothing.** The axios 401 interceptor did a hard
+  `window.location.href = "/login"`, reloading the page before the error
+  could render. Login attempts are now exempt: the server's
+  "Invalid Email or Password" reaches the form; expired sessions elsewhere
+  still bounce to login.
+- **Fresh rubric form had a dead create button.** The rubric editor
+  prefills Impact/Technical/Design (Σ=100) internally but never pushed them
+  to the parent, so `rubricOk` stayed false — green meter, disabled button —
+  until the user nudged a value. The editor now syncs on mount.
+- **Failed submits erased the judge's work** (also caught by the API
+  walkthrough): `submitEvaluation` threw `INCOMPLETE_SCORES` before saving.
+  The attempt now persists as a draft first, then validates.
+- **Withdraw was unreachable**: `handleWithdraw` existed but no button ever
+  called it — wired edit/withdraw onto the owning team's card (+ styles).
+- **Stale `setState` after unmount** on both list pages — restructured to
+  inline async + `ignore` flag; also cleared the last ESLint errors
+  (frontend lint exits 0).
+
+### Added (2026-10-22) — user-journey test harness
+
+- **`e2e/ui-journey.mjs`** — Playwright walks the whole loop as people, not
+  APIs: unauthenticated bounce → bad login → organizer creates/rubrics/
+  assigns/publishes → team checks drafts are invisible → two teams submit
+  (with the `javascript:` rejection seen in-form) → edit/withdraw/re-enter →
+  unassigned judge locked out → judge scores to exactly 82 (hand-checked:
+  9/10×60 + 7/10×40) → submit confirm names the total → reload stays
+  locked → close judging → everything read-only. `npm i` in `e2e/`,
+  then `node e2e/ui-journey.mjs` with backend :3000 + frontend :5173 up.
+- **Gotcha worth knowing:** the frontend must run on **5173** — CORS allows
+  only `CLIENT_URL`, so a second dev server on 5174 silently fails every
+  request.
+
 ### Added (2026-10-21) — Phase 0.5 overhaul landed + Phase 1 frontend
 
 - **Design tokens** — `frontend/src/styles/tokens.css`: full palette

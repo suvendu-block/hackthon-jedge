@@ -53,30 +53,37 @@ Declared ADR-0013 — rewrite, not patch. Details:
 - [x] `api` client wired (`VITE_API_URL=http://localhost:3000/api` in
       `frontend/.env` — root, not `src/`)
 
-## Phase 2 — Event Management
+## Phase 2 — Event Management ✅ complete (2026-10-22)
 
-- [ ] Event model with configurable rubric (criteria + weights, Σ = 100%)
-- [ ] Event CRUD (organizer), judge assignment, status flow
-- [ ] Rubric editor UI with live weight-total display
+- [x] Event model with configurable rubric (criteria + weights, Σ = 100%,
+      enforced in zod + mongoose + service)
+- [x] Event CRUD (organizer), judge assignment, status flow
+      (draft → published → closed, with publish/close controls on the card)
+- [x] Rubric editor UI with live weight-total display (+ "spread evenly")
 
-## Phase 3 — Project Submissions
+## Phase 3 — Project Submissions ✅ complete (2026-10-22)
 
-- [ ] Submission model with URL allowlist validation
-- [ ] Submit/list/detail endpoints with assignment enforcement
-- [ ] Submission form and ProjectDetails page
+- [x] Submission model with URL allowlist validation (`http:`/`https:` only)
+- [x] Submit/list/detail endpoints with assignment enforcement and
+      role-scoped visibility (teams see only their own)
+- [x] Submission form with dynamic link rows, edit + withdraw
 
-## Phase 4 — Judging and Scorecards
+## Phase 4 — Judging and Scorecards ✅ complete (2026-10-22)
 
-- [ ] Evaluation model (one per judge per submission)
-- [ ] `services/scoringService.js` with unit-tested weighted math
-- [ ] Draft → submitted workflow, evaluation history
-- [ ] JudgeEvaluation scorecard UI with running total
+- [x] Evaluation model (one per judge per submission, unique index)
+- [x] `services/scoringService.js` with unit-tested weighted math (ADR-0005,
+      12 unit tests; `contribution = (score/10) × weight`)
+- [x] Draft → submitted workflow (failed submits persist as drafts so no
+      work is lost), submit locks scoring
+- [x] Scorecard UI with 0–10 sliders, running total, contribution chips
 
 ## Phase 5 — Leaderboard and Export
 
-- [ ] Weighted aggregation and ranking with tie-breakers
-- [ ] Results-release gating for unpublished scores
-- [ ] Leaderboard page; CSV export
+- [x] Weighted aggregation and ranking with tie-breakers (average → judged
+      count → name → id; unjudged rows last with null rank)
+- [x] Results-release gating for unpublished scores (sealed for judges and
+      teams until the organizer releases; preview for the organizer)
+- [x] Leaderboard page; CSV export (BOM + CRLF, one column per judge)
 
 ## Phase 6 — AI Evaluation Assistant
 
@@ -114,10 +121,10 @@ Declared ADR-0013 — rewrite, not patch. Details:
 | M0 | Runnable skeleton | `/api/health` returns ok, DB connects | ✅ 2026-10-20 |
 | M1 | Auth works end-to-end | Roles enforced in tests | ✅ 2026-10-21 |
 | M1.5 | Architecture + view overhaul | v2 layers + feature-first UI landed | ✅ 2026-10-21 |
-| M2 | Events with custom rubrics | Σ weight validation enforced | ⬜ |
-| M3 | Submissions flowing | Teams can submit, judges can read | ⬜ |
-| M4 | Judging live | Scorecards + scoring service tested | ⬜ |
-| M5 | Results visible | Leaderboard matches hand-computed totals | ⬜ |
+| M2 | Events with custom rubrics | Σ weight validation enforced | ✅ 2026-10-22 |
+| M3 | Submissions flowing | Teams can submit, judges can read | ✅ 2026-10-22 |
+| M4 | Judging live | Scorecards + scoring service tested | ✅ 2026-10-22 |
+| M5 | Results visible | Leaderboard matches hand-computed totals | ✅ |
 | M6 | AI assist enabled | Reports typed, uncertain, overridable | ⬜ |
 | M7 | Deep evidence | GitHub analysis with authorization | ⬜ |
 | M8 | Production | Deployed, monitored, security checklist done | ⬜ |

@@ -24,8 +24,11 @@ export default function ScorecardPage() {
     const [error, setError] = useState('');
 
     useEffect(() => {
+        let ignore = false;   // StrictMode mounts twice — a slow stale load must
+        // never wipe scores the judge has already started setting
         getScorecard(submissionId)
             .then((d) => {
+                if (ignore) return;
                 setData(d);
                 // hydrate from any existing draft
                 const map = {};
@@ -33,7 +36,10 @@ export default function ScorecardPage() {
                 setScores(map);
                 setComments(d.evaluation.comments || '');
             })
-            .catch((err) => setError(err.response?.data?.error?.message || 'Could not load scorecard'));
+            .catch((err) => {
+                if (!ignore) setError(err.response?.data?.error?.message || 'Could not load scorecard');
+            });
+        return () => { ignore = true; };
     }, [submissionId]);
 
     if (error) return <main className="score"><p className="score-error">{error}</p></main>;

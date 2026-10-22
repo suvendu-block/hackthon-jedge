@@ -48,7 +48,7 @@ Run everything in CI on each pull request (BL-22).
 | `events.test.js` | organizer creates event; non-organizer 403; rubric Σ≠100 rejected; membership-scoped listing; status transitions |
 | `submissions.test.js` | team submits to active event; closed event rejected; judge sees only assigned; URL allowlist rejects `http://169.254.169.254`; team edits own only |
 | `evaluations.test.js` | draft save; submit transition; one eval per judge per submission (409); auto-computed total present; score range enforced |
-| `leaderboard.test.js` | ranking order correct; draft evaluations excluded; unpublished scores hidden from teams; published visible; CSV export shape |
+| `leaderboard.test.js` | ranking order + hand-checked averages; draft evaluations excluded; standings sealed for teams **and** judges pre-release; organizer preview; release rules (owner-only, closed-only, once-only); status locked after release; CSV shape + gating |
 | `aiAnalysis.test.js` | assigned judge only; non-assigned 403; rate limit 429; malformed LLM response → 503, nothing stored; stored report has evidence types |
 
 ## 5. AI Evaluation Tests
@@ -81,10 +81,13 @@ Run everything in CI on each pull request (BL-22).
 
 - [ ] Login flow: success, failure, token persistence, logout on 401
 - [ ] Rubric editor: live total updates; publish disabled unless Σ = 100%
-- [ ] Scorecard: running total matches `scoringService` for the same inputs
+- [x] Scorecard: running total matches `scoringService` for the same inputs
+      (UI journey asserts hand math: 9→54, +7→82, 5+5→50)
 - [ ] AI report: evidence badges render with **text labels** (not color alone)
 - [ ] Accept-suggestion requires explicit confirmation
-- [ ] Unpublished leaderboard hidden from team role
+- [x] Unpublished leaderboard hidden from team role (and judges — sealed
+      screen asserted for both; organizer preview + release + CSV download
+      all walked in the UI journey)
 - [ ] Keyboard-only navigation through the scoring flow; ARIA labels present
 
 ## 8. Test Data and Fixtures

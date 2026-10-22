@@ -97,3 +97,75 @@ export const checkScoresComplete = (criteria, scores) => {
 function round2(n) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
 }
+
+// same idea at 1dp (what the scorecard and leaderboard show). the 1e-9 slack
+// absorbs float noise so 81.64999999999999 lands on 81.7, not 81.6
+function round1(n) {
+    return Math.round(n * 10 + 1e-9) / 10;
+}
+
+/**
+ * standings for an event — every submission ranked by the average of its
+ * submitted scorecards. This is still ADR-0005 territory: the UI and the CSV
+ * render exactly what this returns, they never re-derive it.
+ *
+ * Ties break in a fixed order so reruns can never shuffle the board:
+ *   1. higher average (1dp — the same precision a judge sees on the card)
+ *   2. more judges have signed off (a fuller picture beats a thin one)
+ *   3. project name A→Z (deterministic across machines)
+ *   4. submission id (pure tie-stopper)
+ * A submission nobody scored sits at the bottom with rank/average null —
+ * it isn't a zero, it simply hasn't been judged yet.
+ *
+ * @param {Array<{_id:string, projectName:string, tagline?:string, team?:{name:string}}>} submissions
+ * @param {Array<{submission:any, judge:any, total:number, status?:string}>} evaluations
+ *        drafts are ignored — only submitted scorecards count
+ * @returns {Array} rows {rank, submission, project, team, tagline, average, judged, scores}
+ */
+export const buildLeaderboard = (submissions = [], evaluations = []) => {
+    const submitted = evaluations.filter(e => (e.status ?? 'submitted') === 'submitted');
+
+    const rows = submissions.map(s => {
+        const id = String(s._id ?? s.id);
+        const mine = submitted.filter(e => String(e.submission) === id);
+
+        const scores = mine
+            .map(e => ({
+                judge: String(e.judge?._id ?? e.judge),
+                judgeName: typeof e.judge === 'object' && e.judge !== null ? (e.judge.name ?? '') : '',
+                total: e.total
+            }))
+            .sort((a, b) => a.judgeName.localeCompare(b.judgeName) || a.judge.localeCompare(b.judge));
+
+        const average = mine.length
+            ? round1(mine.reduce((sum, e) => sum + e.total, 0) / mine.length)
+            : null;
+
+        return {
+            rank: null,
+            submission: id,
+            project: s.projectName,
+            team: s.team?.name ?? '',
+            tagline: s.tagline ?? '',
+            average,
+            judged: mine.length,
+            scores
+        };
+    });
+
+    const scored = rows.filter(r => r.average !== null);
+    scored.sort((a, b) =>
+        b.average - a.average ||
+        b.judged - a.judged ||
+        a.project.localeCompare(b.project) ||
+        a.submission.localeCompare(b.submission)
+    );
+    scored.forEach((row, i) => { row.rank = i + 1; });
+
+    const unscored = rows.filter(r => r.average === null);
+    unscored.sort((a, b) =>
+        a.project.localeCompare(b.project) || a.submission.localeCompare(b.submission)
+    );
+
+    return [...scored, ...unscored];
+};

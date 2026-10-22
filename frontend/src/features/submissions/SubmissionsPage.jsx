@@ -29,6 +29,7 @@ export default function SubmissionsPage() {
     // a team that already submitted switches to edit mode
     const mySub = subs.find(s => s.team._id === user._id);
 
+    // refetch after we change something (submit / edit / withdraw)
     const refresh = async () => {
         try {
             const [ev, list] = await Promise.all([getEvent(eventId), listSubmissions(eventId)]);
@@ -41,7 +42,21 @@ export default function SubmissionsPage() {
         }
     };
 
-    useEffect(() => { refresh(); }, [eventId]);
+    // first load. `ignore` stops us setting state if we've already left the page.
+    useEffect(() => {
+        let ignore = false;
+        (async () => {
+            try {
+                const [ev, list] = await Promise.all([getEvent(eventId), listSubmissions(eventId)]);
+                if (!ignore) { setEvent(ev); setSubs(list); }
+            } catch (err) {
+                if (!ignore) setError(err.response?.data?.error?.message || 'Could not load submissions');
+            } finally {
+                if (!ignore) setLoading(false);
+            }
+        })();
+        return () => { ignore = true; };
+    }, [eventId]);
 
     const startEdit = (sub) => {
         setEditingId(sub._id);
@@ -97,11 +112,12 @@ export default function SubmissionsPage() {
         }
     };
 
-    const handleWithdraw = async () => {
-        if (!window.confirm('Withdraw your submission? Judges will no longer see it.')) return;
+    const handleWithdraw = async (sub) => {
+        if (!window.confirm(`Withdraw "${sub.projectName}"? Judges will no longer see it.`)) return;
         try {
-            await deleteSubmission(mySub._id);
+            await deleteSubmission(sub._id);
             setShowForm(false);
+            setEditingId(null);
             await refresh();
         } catch (err) {
             setError(err.response?.data?.error?.message || 'Could not withdraw');
@@ -237,14 +253,26 @@ export default function SubmissionsPage() {
                                 </div>
                             )}
 
-                            {/* judges get a straight path to the scorecard */}
-                            {user.role === 'judge' && !isClosed && (
-                                <div className="sub-actions">
+                            {/* per-role actions on the card */}
+                            <div className="sub-actions">
+                                {/* judges get a straight path to the scorecard */}
+                                {user.role === 'judge' && !isClosed && (
                                     <Link to={`/scorecard/${s._id}`} className="sub-score">
                                         score it →
                                     </Link>
-                                </div>
-                            )}
+                                )}
+                                {/* the owning team can edit or withdraw while open */}
+                                {isTeam && s.team._id === user._id && !isClosed && (
+                                    <>
+                                        <button className="sub-edit" onClick={() => startEdit(s)}>
+                                            edit
+                                        </button>
+                                        <button className="sub-withdraw" onClick={() => handleWithdraw(s)}>
+                                            withdraw
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>

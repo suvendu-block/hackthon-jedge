@@ -317,6 +317,9 @@
 
 .event-view,
 .event-assign,
+.event-results,
+.event-publish,
+.event-close,
 .event-del {
     padding: 6px 13px;
     font-family: var(--font-mono);
@@ -340,6 +343,17 @@
     background: rgba(242, 169, 59, 0.1);
 }
 
+/* results — quieter than view, warms up on hover */
+.event-results {
+    color: var(--c-paper-dim);
+    border: 1px solid var(--c-hairline);
+}
+
+.event-results:hover {
+    color: var(--c-amber);
+    border-color: rgba(242, 169, 59, 0.4);
+}
+
 .event-assign {
     color: var(--c-amber);
     border: 1px solid rgba(242, 169, 59, 0.45);
@@ -357,6 +371,31 @@
 .event-del:hover {
     color: var(--c-danger);
     border-color: rgba(255, 133, 119, 0.4);
+}
+
+/* publish is the loudest thing a draft card can do */
+.event-publish {
+    color: #0f1420;
+    background: var(--c-amber);
+    border: 1px solid var(--c-amber);
+    font-weight: 600;
+}
+
+.event-publish:hover {
+    filter: brightness(1.06);
+    box-shadow: var(--shadow-amber-lift);
+}
+
+/* closing is the careful one — dim, not alarming until you hover */
+.event-close {
+    color: var(--c-paper-dim);
+    border: 1px solid rgba(242, 169, 59, 0.35);
+}
+
+.event-close:hover {
+    color: var(--c-amber);
+    border-color: rgba(242, 169, 59, 0.6);
+    background: rgba(242, 169, 59, 0.08);
 }
 
 /* judge picker */

@@ -24,6 +24,16 @@ const findEventOr404 = async (id, populate = []) => {
     return event;
 };
 
+// these routes hand the event straight back to the page, which draws judge
+// chips from it — without this the chips come back nameless until a refresh
+const withRefs = async (event) => {
+    await event.populate([
+        { path: 'organizer', select: 'name email' },
+        { path: 'judges', select: 'name email' }
+    ]);
+    return event;
+};
+
 
 /// create — logged-in user becomes the organizer
 export const createEvent = catchAsync(async (req, res) => {
@@ -35,12 +45,15 @@ export const createEvent = catchAsync(async (req, res) => {
 });
 
 
-/// list — organizers see their own, judges see events they're assigned to
-/// teams get nothing for now (Phase 3 opens submissions)
+/// list — organizers see their own, judges see events they're assigned to,
+/// teams see everything that's actually open to them (no drafts)
 export const listEvents = catchAsync(async (req, res) => {
-    const filter = req.user.role === 'organizer'
+    const role = req.user.role;
+    const filter = role === 'organizer'
         ? { organizer: req.user._id }
-        : { judges: req.user._id };
+        : role === 'team'
+            ? { status: { $ne: 'draft' } }
+            : { judges: req.user._id };
 
     const events = await Event.find(filter)
         .populate('organizer', 'name email')
@@ -57,8 +70,10 @@ export const getEvent = catchAsync(async (req, res) => {
 
     const isOrganizer = event.organizer._id.toString() === req.user._id.toString();
     const isJudge = event.judges.some(j => j._id.toString() === req.user._id.toString());
+    // teams can look once the event is open — they need it before submitting
+    const isTeam = req.user.role === 'team' && event.status !== 'draft';
 
-    if (!isOrganizer && !isJudge) {
+    if (!isOrganizer && !isJudge && !isTeam) {
         throw new AppError('Not your event', 403, 'FORBIDDEN');
     }
 
@@ -76,10 +91,15 @@ export const updateEvent = catchAsync(async (req, res) => {
         throw new AppError('Rubric is locked after publishing — reopen as draft first', 409, 'RUBRIC_LOCKED');
     }
 
+    // results are out — nobody reopens the books behind them
+    if (event.resultsReleased && req.body.status && req.body.status !== 'closed') {
+        throw new AppError('Results are released — this event cannot change status anymore', 409, 'RESULTS_LOCKED');
+    }
+
     Object.assign(event, req.body);
     await event.save();   // runs the Σ=100 validator again as a safety net
 
-    res.json(event);
+    res.json(await withRefs(event));
 });
 
 
@@ -111,7 +131,7 @@ export const addJudge = catchAsync(async (req, res) => {
     event.judges.push(judge._id);
     await event.save();
 
-    res.status(201).json(event);
+    res.status(201).json(await withRefs(event));
 });
 
 
@@ -123,5 +143,5 @@ export const removeJudge = catchAsync(async (req, res) => {
     event.judges = event.judges.filter(j => j.toString() !== req.params.judgeId);
     await event.save();
 
-    res.json(event);
+    res.json(await withRefs(event));
 });

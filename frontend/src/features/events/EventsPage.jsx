@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext.jsx';
 import RubricEditor from './RubricEditor.jsx';
 import {
-    listEvents, createEvent, deleteEvent, addJudge, removeJudge, listJudges
+    listEvents, createEvent, updateEvent, deleteEvent, addJudge, removeJudge, listJudges
 } from './events.api.js';
 import './EventsPage.css';
 
@@ -33,6 +33,7 @@ export default function EventsPage() {
     const total = criteria.reduce((s, c) => s + (Number(c.weight) || 0), 0);
     const rubricOk = criteria.length > 0 && Math.abs(total - 100) < 0.001;
 
+    // refetch after we change something (create / delete / assign)
     const refresh = async () => {
         try {
             setEvents(await listEvents());
@@ -43,7 +44,21 @@ export default function EventsPage() {
         }
     };
 
-    useEffect(() => { refresh(); }, []);
+    // first load. `ignore` stops us setting state if we've already left the page.
+    useEffect(() => {
+        let ignore = false;
+        (async () => {
+            try {
+                const list = await listEvents();
+                if (!ignore) setEvents(list);
+            } catch (err) {
+                if (!ignore) setError(err.response?.data?.error?.message || 'Could not load events');
+            } finally {
+                if (!ignore) setLoading(false);
+            }
+        })();
+        return () => { ignore = true; };
+    }, []);
 
     // judge directory only matters to organizers, and only when assigning
     useEffect(() => {
@@ -77,6 +92,21 @@ export default function EventsPage() {
             setEvents(events.filter(ev => ev._id !== id));
         } catch (err) {
             setError(err.response?.data?.error?.message || 'Could not delete event');
+        }
+    };
+
+    // publish / close — the two state changes that matter on this screen
+    const handleStatus = async (id, status) => {
+        const msg = status === 'published'
+            ? 'Publish this event? Teams can submit and judges can start scoring.'
+            : 'Close judging? Scorecards and submissions lock from then on.';
+        if (!window.confirm(msg)) return;
+        setError('');
+        try {
+            const updated = await updateEvent(id, { status });
+            setEvents(events.map(ev => (ev._id === id ? updated : ev)));
+        } catch (err) {
+            setError(err.response?.data?.error?.message || 'Could not update event');
         }
     };
 
@@ -157,7 +187,9 @@ export default function EventsPage() {
                 <p className="events-empty">
                     {isOrganizer
                         ? 'No events yet — create the first one.'
-                        : 'No events assigned to you yet. An organizer has to invite you.'}
+                        : user.role === 'team'
+                            ? 'No open events right now — you\'ll see them here once organizers publish.'
+                            : 'No events assigned to you yet. An organizer has to invite you.'}
                 </p>
             ) : (
                 <ul className="events-list">
@@ -203,13 +235,29 @@ export default function EventsPage() {
                                     >
                                         view submissions
                                     </Link>
+                                    {ev.status !== 'draft' && (
+                                        <Link
+                                            to={`/events/${ev._id}/leaderboard`}
+                                            className="event-results"
+                                        >
+                                            results
+                                        </Link>
+                                    )}
+                                    {ev.status !== 'closed' && (
+                                        <button
+                                            className="event-assign"
+                                            onClick={() => setAssignOpen(assignOpen === ev._id ? null : ev._id)}
+                                        >
+                                            assign judge
+                                        </button>
+                                    )}
                                     {ev.status === 'draft' && (
                                         <>
                                             <button
-                                                className="event-assign"
-                                                onClick={() => setAssignOpen(assignOpen === ev._id ? null : ev._id)}
+                                                className="event-publish"
+                                                onClick={() => handleStatus(ev._id, 'published')}
                                             >
-                                                assign judge
+                                                publish
                                             </button>
                                             <button
                                                 className="event-del"
@@ -219,10 +267,18 @@ export default function EventsPage() {
                                             </button>
                                         </>
                                     )}
+                                    {ev.status === 'published' && (
+                                        <button
+                                            className="event-close"
+                                            onClick={() => handleStatus(ev._id, 'closed')}
+                                        >
+                                            close judging
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
-                            {/* judges get the same link */}
+                            {/* judges and teams get the same links */}
                             {!isOrganizer && (
                                 <div className="event-actions">
                                     <Link
@@ -231,6 +287,14 @@ export default function EventsPage() {
                                     >
                                         view submissions
                                     </Link>
+                                    {ev.status !== 'draft' && (
+                                        <Link
+                                            to={`/events/${ev._id}/leaderboard`}
+                                            className="event-results"
+                                        >
+                                            results
+                                        </Link>
+                                    )}
                                 </div>
                             )}
 

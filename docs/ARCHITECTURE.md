@@ -114,7 +114,7 @@ HTTP request
 
 ### Frontend target — the "view" overhaul
 
-**As-built today (2026-10-21):**
+**As-built today (2026-10-22):**
 
 ```
 frontend/src/
@@ -122,10 +122,22 @@ frontend/src/
 ├── app/                           # App.jsx (router, ProtectedRoute), Dashboard
 ├── styles/tokens.css              # design tokens: color/type/spacing/radii/shadow/z
 ├── features/
-│   ├── auth/                      # Login.jsx + Login.css + AuthContext.jsx ✅
-│   └── shared/api/client.js       # axios instance + interceptors ✅
-└── components/                    # shared UI primitives (empty, Phase 2+)
+│   ├── auth/                      # Login.jsx + AuthContext.jsx ✅
+│   ├── shared/api/client.js       # axios instance + interceptors ✅
+│   ├── events/                    # EventsPage + RubricEditor + events.api.js ✅
+│   ├── submissions/               # SubmissionsPage + submissions.api.js ✅
+│   ├── judging/                   # ScorecardPage + judging.api.js ✅
+│   └── leaderboard/               # LeaderboardPage + leaderboard.api.js ✅
+└── components/                    # shared UI primitives (empty, Phase 6+)
 ```
+
+Per-resource API modules are **colocated in their feature**
+(`features/events/events.api.js` etc.), not a shared top-level `api/` —
+pages still never call axios directly.
+
+Repo-root additions: `scripts/e2e-walkthrough.mjs` (live API walkthrough,
+18 checks) and `e2e/ui-journey.mjs` (Playwright user journey, 102 checks) —
+both need backend :3000 and frontend :5173 running.
 
 `@` → `src` alias configured in `vite.config.js`.
 
@@ -133,13 +145,9 @@ frontend/src/
 
 ```
 frontend/src/
-├── api/                   # per-resource modules: auth.api.js / events.api.js / …
 ├── features/
-│   ├── events/            # list, rubric editor
-│   ├── submissions/       # form, ProjectDetails
-│   ├── judging/           # scorecard, evidence badges, AI report panel
-│   └── leaderboard/
-├── components/ui/         # design system primitives (Button, Card, Badge…)
+│   └── judging/               # + evidence badges, AI report panel (Phase 6)
+├── components/ui/             # design system primitives (Button, Card, Badge…)
 └── hooks/  context/  utils/
 ```
 

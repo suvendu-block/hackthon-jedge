@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes.js';
 import eventRoutes from './routes/event.routes.js';
 import userRoutes from './routes/user.routes.js';
 import evaluationRoutes from './routes/evaluation.routes.js';
+import leaderboardRoutes from './routes/leaderboard.routes.js';
 import { eventScoped as submissionEventRoutes, byId as submissionByIdRoutes } from './routes/submission.routes.js';
 import { notFound, errorHandler } from './middleware/error.middleware.js';
 
@@ -22,7 +23,9 @@ const app = express();
 
 // middleware
 app.use(express.json({ limit: '1mb' }));
-app.use(cors({ origin: process.env.CLIENT_URL }));
+// Content-Disposition must be readable by the client so the CSV download
+// keeps the server's filename instead of falling back to a generic one
+app.use(cors({ origin: process.env.CLIENT_URL, exposedHeaders: 'Content-Disposition' }));
 
 // health check
 app.get('/api/health', (req, res) => {
@@ -33,6 +36,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth',authRoutes);
 // submissions: nested under their event (mergeParams lifts eventId) + standalone by id
 app.use('/api/events/:eventId/submissions',submissionEventRoutes);
+app.use('/api/events/:eventId/leaderboard',leaderboardRoutes);
 app.use('/api/submissions',submissionByIdRoutes);
 app.use('/api/evaluations',evaluationRoutes);
 app.use('/api/events',eventRoutes);

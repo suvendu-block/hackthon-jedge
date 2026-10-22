@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './RubricEditor.css';
 
 // the rubric editor — criteria rows + live weight total
@@ -11,6 +11,13 @@ export default function RubricEditor({ criteria, onChange, locked = false }) {
             { name: 'Design', description: '', weight: 25 }
         ]
     );
+
+    // the prefilled rows start life inside this component only — push them up
+    // once so the parent's "Σ=100" gate agrees with the meter on screen
+    useEffect(() => {
+        if (criteria.length === 0) onChange(draft);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const total = draft.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
     const rounded = Math.round(total * 10) / 10;           // kill float noise (0.1+0.2)

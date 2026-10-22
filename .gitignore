@@ -1,0 +1,12 @@
+# deps and build output (backend/frontend keep their own ignores too)
+node_modules/
+dist/
+*.log
+
+# e2e run artifacts - screenshots taken while debugging, never source
+e2e/artifacts/
+
+# env files anywhere - secrets never get committed
+.env
+.env.local
+.env.*.local

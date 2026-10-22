@@ -21,10 +21,13 @@ api.interceptors.request.use((config) => {
 
 
 /// on 401 -> clear session , send to login
+/// (except the login attempt itself — a wrong password there is just a
+/// message to show, not a lost session, and redirecting would wipe it)
 api.interceptors.response.use(
     (res) => res,
     (err) => {
-        if (err.response?.status === 401) {
+        const isLoginAttempt = err.config?.url?.includes('/auth/login');
+        if (err.response?.status === 401 && !isLoginAttempt) {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             window.location.href ="/login";

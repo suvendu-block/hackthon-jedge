@@ -5,6 +5,7 @@ import {
     totalScore,
     validateWeights,
     checkScoresComplete,
+    buildLeaderboard,
     WEIGHT_TOTAL,
     SCORE_MIN,
     SCORE_MAX
@@ -129,4 +130,103 @@ test('checkScoresComplete: score for unknown criterion flagged', () => {
 test('bounds exported so UI/API agree on the scale', () => {
     assert.equal(SCORE_MIN, 0);
     assert.equal(SCORE_MAX, 10);
+});
+
+// ---- buildLeaderboard: standings, averages, tie-breakers ----
+
+const board = (projects) => projects.map(p => ({
+    _id: p.id, projectName: p.name, tagline: p.tagline ?? '', team: { name: p.team ?? 'Team' }
+}));
+
+test('buildLeaderboard: two judges average by hand — (82+80)/2 = 81', () => {
+    const rows = buildLeaderboard(
+        board([{ id: 's1', name: 'ClimateLens' }]),
+        [
+            { submission: 's1', judge: { _id: 'j1', name: 'Bo' }, total: 82, status: 'submitted' },
+            { submission: 's1', judge: { _id: 'j2', name: 'Ann' }, total: 80, status: 'submitted' }
+        ]
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].average, 81);
+    assert.equal(rows[0].rank, 1);
+    assert.equal(rows[0].judged, 2);
+    // per-judge chips come out alphabetical so the UI is stable
+    assert.deepEqual(rows[0].scores.map(s => s.judgeName), ['Ann', 'Bo']);
+});
+
+test('buildLeaderboard: draft scorecards never reach the standings', () => {
+    const rows = buildLeaderboard(
+        board([{ id: 's1', name: 'Alpha' }]),
+        [
+            { submission: 's1', judge: { _id: 'j1', name: 'A' }, total: 80, status: 'submitted' },
+            { submission: 's1', judge: { _id: 'j2', name: 'B' }, total: 100, status: 'draft' }
+        ]
+    );
+    assert.equal(rows[0].average, 80);
+    assert.equal(rows[0].judged, 1);
+});
+
+test('buildLeaderboard: ranks highest first', () => {
+    const rows = buildLeaderboard(
+        board([{ id: 'a', name: 'Aardvark' }, { id: 'b', name: 'Middle' }, { id: 'c', name: 'Zulu' }]),
+        [
+            { submission: 'a', judge: 'j1', total: 60, status: 'submitted' },
+            { submission: 'b', judge: 'j1', total: 95, status: 'submitted' },
+            { submission: 'c', judge: 'j1', total: 75, status: 'submitted' }
+        ]
+    );
+    assert.deepEqual(rows.map(r => r.project), ['Middle', 'Zulu', 'Aardvark']);
+    assert.deepEqual(rows.map(r => r.rank), [1, 2, 3]);
+});
+
+test('buildLeaderboard: equal averages — the fuller judging wins', () => {
+    const rows = buildLeaderboard(
+        board([{ id: 'a', name: 'Zeta' }, { id: 'b', name: 'Alpha' }]),
+        [
+            { submission: 'a', judge: 'j1', total: 80, status: 'submitted' },
+            { submission: 'b', judge: 'j1', total: 80, status: 'submitted' },
+            { submission: 'b', judge: 'j2', total: 80, status: 'submitted' }
+        ]
+    );
+    assert.equal(rows[0].project, 'Alpha');   // same 80, but 2 judges vs 1
+    assert.equal(rows[0].judged, 2);
+});
+
+test('buildLeaderboard: still tied — alphabetical settles it', () => {
+    const rows = buildLeaderboard(
+        board([{ id: 'z', name: 'Beta' }, { id: 'y', name: 'Aardvark' }]),
+        [
+            { submission: 'z', judge: 'j1', total: 70, status: 'submitted' },
+            { submission: 'y', judge: 'j1', total: 70, status: 'submitted' }
+        ]
+    );
+    assert.deepEqual(rows.map(r => r.project), ['Aardvark', 'Beta']);
+});
+
+test('buildLeaderboard: unjudged sits last, rank and average null (not 0)', () => {
+    const rows = buildLeaderboard(
+        board([{ id: 'a', name: 'Scored' }, { id: 'b', name: 'Ghost' }]),
+        [{ submission: 'a', judge: 'j1', total: 50, status: 'submitted' }]
+    );
+    assert.equal(rows[0].project, 'Scored');
+    assert.equal(rows[1].project, 'Ghost');
+    assert.equal(rows[1].rank, null);
+    assert.equal(rows[1].average, null);
+    assert.equal(rows[1].judged, 0);
+});
+
+test('buildLeaderboard: average rounds to the scorecard\'s 1dp, float noise and all', () => {
+    // 81.6 + 81.7 = 163.3 → 81.65 → must show 81.7, not 81.6
+    const rows = buildLeaderboard(
+        board([{ id: 's1', name: 'Edge' }]),
+        [
+            { submission: 's1', judge: 'j1', total: 81.6, status: 'submitted' },
+            { submission: 's1', judge: 'j2', total: 81.7, status: 'submitted' }
+        ]
+    );
+    assert.equal(rows[0].average, 81.7);
+});
+
+test('buildLeaderboard: empty inputs give an empty board', () => {
+    assert.deepEqual(buildLeaderboard([], []), []);
 });

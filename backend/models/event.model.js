@@ -66,6 +66,16 @@ const eventSchema = new mongoose.Schema({
         type: String,
         enum: ['draft', 'published', 'closed'],
         default: 'draft'
+    },
+    // standings stay sealed until the organizer lets them out (Phase 5).
+    // only meaningful once status is 'closed' — release requires it.
+    resultsReleased: {
+        type: Boolean,
+        default: false
+    },
+    releasedAt: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

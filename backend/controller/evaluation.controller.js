@@ -11,7 +11,7 @@ const loadSubmission = async (id) => {
     if (!mongoose.isValidObjectId(id)) {
         throw new AppError('Submission not found', 404, 'NOT_FOUND');
     }
-    // NOTE: 'rubric' must stay in this select — the scoring math reads it
+    // keep 'rubric' in the select — scoring math reads it
     const sub = await Submission.findById(id).populate('event', 'name status organizer judges rubric');
     if (!sub) throw new AppError('Submission not found', 404, 'NOT_FOUND');
     return sub;
@@ -110,13 +110,16 @@ export const submitEvaluation = catchAsync(async (req, res) => {
     ev.scores = req.body.scores;
     ev.comments = req.body.comments ?? '';
 
+    // save first, then check completeness — a failed submit shouldn't wipe their work
+    ev.total = totalScore(sub.event.rubric, ev.scores);
+    await ev.save();
+
     // completeness: all rubric criteria covered, scores in range
     const problems = checkScoresComplete(sub.event.rubric, ev.scores);
     if (problems.length > 0) {
         throw new AppError(`Cannot submit: ${problems.join('; ')}`, 422, 'INCOMPLETE_SCORES');
     }
 
-    ev.total = totalScore(sub.event.rubric, ev.scores);
     ev.status = 'submitted';
     ev.submittedAt = new Date();
     await ev.save();
