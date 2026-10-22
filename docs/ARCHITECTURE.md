@@ -1,10 +1,12 @@
 # Architecture — HackJudge AI
 
-> **Point of view:** this document now describes **two architectures** —
-> the one **actually running today** (v1, verified against the code) and the
-> **overhaul target** (v2) that the project is being rewritten toward:
-> a full architecture + view (UI) rebuild. See
-> [DECISIONS.md](DECISIONS.md) ADR-0013.
+> **Point of view:** this document describes **two architectures** —
+> **v1** (the original as-built) and **v2** (the overhaul target from ADR-0013).
+> As of 2026-10-21 the overhaul has **landed**: central error handler, zod
+> validation, naming normalization, feature-first frontend and design tokens
+> are live. Part 1 stays as the historical record; Part 2's ✅ items are
+> current reality. Leftovers (config module, supertest layout, logout design)
+> tracked in [ROADMAP.md](ROADMAP.md) Phase 0.5.
 
 ---
 
@@ -91,12 +93,18 @@ HTTP request
 
 **v2 moves (delta from v1):**
 
-1. **Naming normalization:** `model/`→`models/`, `controller/`→`controllers/`,
-   `genrateToken.js`→`generateToken.js`, routes `auth.route.js` (consistent `*.route.js`).
-2. **Central error handler** — kill per-controller try/catch boilerplate; use
-   an `asyncHandler` wrapper + single JSON error middleware.
-3. **Validation middleware** (zod — already a Vite-side dep candidate) before
-   controllers; controllers never do `if (!name)` checks again.
+1. ✅ **Naming normalization (2026-10-21):** `model/`→`models/`,
+   `genrateToken.js`→`generateToken.js`. `controller/` stays singular for now
+   (one controller; revisit with the first Phase 2 feature).
+2. ✅ **Central error handler (2026-10-21):** `utils/AppError.js` +
+   `utils/catchAsync.js` + `middleware/error.middleware.js` (`notFound` →
+   `errorHandler`, mounted last). Shapes `{error:{code,message}}`, maps
+   SyntaxError→400 `BAD_JSON`, Mongoose ValidationError→422, duplicate key→409,
+   unknown→500 (stack logged, never leaked).
+3. ✅ **Validation middleware (2026-10-21):** zod, at the route layer
+   (`schema/auth.schema.js` + `middleware/validate.middleware.js`). Strict
+   schemas reject unknown fields → 422 `VALIDATION_ERROR`. Controllers keep
+   manual checks only as a safety net.
 4. **`services/` layer** lands with Phase 4 scoring and Phase 6 AI —
    pure functions, unit-testable without DB.
 5. **Config module** — `config/index.js` reads/validates env once at boot
@@ -106,21 +114,32 @@ HTTP request
 
 ### Frontend target — the "view" overhaul
 
+**As-built today (2026-10-21):**
+
 ```
 frontend/src/
-├── main.jsx               # boot: providers, router
-├── app/                   # router, layout shells, providers (Auth)
-├── api/                   # axios instance + interceptors + per-resource modules
-│   ├── client.js
-│   └── auth.api.js / events.api.js / …
-├── features/              # feature-first, not type-first
-│   ├── auth/              # Login.jsx, useAuth, auth.forms
+├── main.jsx                       # boot: tokens.css → providers → App
+├── app/                           # App.jsx (router, ProtectedRoute), Dashboard
+├── styles/tokens.css              # design tokens: color/type/spacing/radii/shadow/z
+├── features/
+│   ├── auth/                      # Login.jsx + Login.css + AuthContext.jsx ✅
+│   └── shared/api/client.js       # axios instance + interceptors ✅
+└── components/                    # shared UI primitives (empty, Phase 2+)
+```
+
+`@` → `src` alias configured in `vite.config.js`.
+
+**Still to come (per phase):**
+
+```
+frontend/src/
+├── api/                   # per-resource modules: auth.api.js / events.api.js / …
+├── features/
 │   ├── events/            # list, rubric editor
 │   ├── submissions/       # form, ProjectDetails
 │   ├── judging/           # scorecard, evidence badges, AI report panel
 │   └── leaderboard/
 ├── components/ui/         # design system primitives (Button, Card, Badge…)
-├── styles/                # design tokens (CSS vars): color, spacing, type
 └── hooks/  context/  utils/
 ```
 

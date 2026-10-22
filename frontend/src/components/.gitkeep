@@ -1,0 +1,3 @@
+// shared components live here (Phase 2+)
+// structure: features/<feature> for feature-owned code, this folder only for
+// things multiple features use (buttons, tables, layout shells...)

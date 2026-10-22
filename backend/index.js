@@ -3,6 +3,9 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
+import eventRoutes from './routes/event.routes.js';
+import userRoutes from './routes/user.routes.js';
+import { eventScoped as submissionEventRoutes, byId as submissionByIdRoutes } from './routes/submission.routes.js';
 import { notFound, errorHandler } from './middleware/error.middleware.js';
 
 
@@ -27,6 +30,11 @@ app.get('/api/health', (req, res) => {
 
 // routes
 app.use('/api/auth',authRoutes);
+// submissions: nested under their event (mergeParams lifts eventId) + standalone by id
+app.use('/api/events/:eventId/submissions',submissionEventRoutes);
+app.use('/api/submissions',submissionByIdRoutes);
+app.use('/api/events',eventRoutes);
+app.use('/api/users',userRoutes);
 
 // 404 + central error handler — must come AFTER all routes
 app.use(notFound);

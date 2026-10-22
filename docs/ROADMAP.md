@@ -15,38 +15,43 @@ ADR-0013 ([DECISIONS.md](DECISIONS.md)).
       `GET /api/health`
 - [x] Frontend scaffolded (Vite + React 19 + ESLint; `frontend/`)
 - [x] `package.json` scripts: `dev` / `start` / `test`
-- [ ] Root `.gitignore` merge + `LICENSE` + lint tooling
-- [ ] Delete stray `config/dns.js` + uninstall junk `dns` npm package
+- [x] Root `.gitignore` merge + `.env.example` (LICENSE pending)
+- [x] Delete stray `config/dns.js` (the `dns` package was never installed —
+      Node built-in)
 
-## Phase 0.5 — Architecture + View Overhaul 📍 current
+## Phase 0.5 — Architecture + View Overhaul ✅ complete (2026-10-21)
 
 Declared ADR-0013 — rewrite, not patch. Details:
 [ARCHITECTURE.md](ARCHITECTURE.md) Part 2.
 
 **Backend (architecture v2):**
-- [ ] Normalize names: `model/`→`models/`, `controller/`→`controllers/`,
-      `genrateToken.js`→`generateToken.js`
-- [ ] Central error handler + `asyncHandler` wrapper (kill try/catch boilerplate)
-- [ ] Validation middleware layer (zod) before controllers
+- [x] Normalize names: `model/`→`models/`, `genrateToken.js`→`generateToken.js`
+      (`controller/`→`controllers/` left as-is — one controller, revisit in Phase 2)
+- [x] Central error handler + `catchAsync` wrapper (try/catch boilerplate gone;
+      `{error:{code,message}}` shaped in one place)
+- [x] Validation middleware layer (zod) before controllers — strict schemas,
+      422 `VALIDATION_ERROR`
 - [ ] `config/index.js` — validate env at boot (fail fast if `JWT_SECRET` missing)
 - [ ] Move `logout` to a real design (Bearer has no server state — document or switch to HttpOnly cookies)
 - [ ] Supertest-based tests against exported `app` (no live server needed)
 
 **Frontend (view v2):**
-- [ ] Design tokens (palette/type/spacing as CSS vars)
-- [ ] Feature-first structure: `app/`, `api/`, `features/{auth,events,submissions,judging,leaderboard}`, `components/ui/`
+- [x] Design tokens (`styles/tokens.css` — palette/type/spacing/radii/shadows)
+- [x] Feature-first structure: `app/`, `features/{auth,shared/api}`, `components/`
+      (events/submissions/judging/leaderboard land in their phases)
 - [ ] Evidence badge system (Verified / Claimed / Inferred — icon + text)
 - [ ] AI-suggested vs judge-entered visual distinction
 - [ ] Mobile-first scorecard shell
 - [ ] **Fold in reference GitHub project** once link is provided (adopt/adapt/reject → ADRs)
 
-## Phase 1 — Authentication and Roles 🟡 backend done, frontend pending
+## Phase 1 — Authentication and Roles ✅ complete (2026-10-21)
 
 - [x] User model, register/login endpoints, password hashing (bcryptjs)
 - [x] JWT middleware (`protect`) + RBAC middleware (`requireRole`)
-- [x] 12 API tests passing (`node --test`)
-- [ ] Login page, auth context, Axios interceptor, protected routes
-- [ ] Wire `api.js` (`VITE_API_URL=http://localhost:3000/api`)
+- [x] 13 API tests passing (`node --test`)
+- [x] Login page, auth context, Axios interceptor, protected routes
+- [x] `api` client wired (`VITE_API_URL=http://localhost:3000/api` in
+      `frontend/.env` — root, not `src/`)
 
 ## Phase 2 — Event Management
 
@@ -107,8 +112,8 @@ Declared ADR-0013 — rewrite, not patch. Details:
 | Milestone | Deliverable | Gate | Status |
 | --- | --- | --- | --- |
 | M0 | Runnable skeleton | `/api/health` returns ok, DB connects | ✅ 2026-10-20 |
-| M1 | Auth works end-to-end | Roles enforced in tests | 🟡 backend ✅ / frontend pending |
-| M1.5 | Architecture + view overhaul | v2 layers + feature-first UI landed | ⬜ current |
+| M1 | Auth works end-to-end | Roles enforced in tests | ✅ 2026-10-21 |
+| M1.5 | Architecture + view overhaul | v2 layers + feature-first UI landed | ✅ 2026-10-21 |
 | M2 | Events with custom rubrics | Σ weight validation enforced | ⬜ |
 | M3 | Submissions flowing | Teams can submit, judges can read | ⬜ |
 | M4 | Judging live | Scorecards + scoring service tested | ⬜ |

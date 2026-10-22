@@ -10,8 +10,9 @@ const api = axios.create({
 
 
 // attach jwt on every request
+// (localStorage key must match exactly what AuthContext writes: "token")
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem("Token");
+    const token = localStorage.getItem("token");
     if(token) config.headers.Authorization = `Bearer ${token}`;
     return config;
 })
@@ -24,7 +25,7 @@ api.interceptors.response.use(
     (res) => res,
     (err) => {
         if (err.response?.status === 401) {
-            localStorage.removeItem("Token");
+            localStorage.removeItem("token");
             localStorage.removeItem("user");
             window.location.href ="/login";
         }

@@ -1,0 +1,183 @@
+/* Dashboard — same Night Judging Desk language as login,
+   tokens come from styles/tokens.css */
+
+.dash {
+    position: relative;
+    min-height: 100svh;
+    padding: var(--sp-8) var(--sp-5);
+    font-family: var(--font-body);
+    color: var(--c-paper);
+    background: var(--c-ink);
+    text-align: left;
+}
+
+/* background: lamp + grain only — no canvas/grid here, keep it calm */
+.dash-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.dash-lamp {
+    position: absolute;
+    width: 80vmax;
+    height: 80vmax;
+    top: -40vmax;
+    right: -25vmax;
+    background: radial-gradient(
+        closest-side,
+        rgba(242, 169, 59, 0.12),
+        transparent 70%
+    );
+}
+
+.dash-grain {
+    position: absolute;
+    inset: -50%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+}
+
+.dash-header,
+.dash-card {
+    position: relative;
+    z-index: 1;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.dash-eyebrow {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    color: var(--c-amber);
+    margin-bottom: var(--sp-2);
+}
+
+.dash-header h1 {
+    margin: 0 0 var(--sp-6);
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(36px, 6vw, 52px);
+    line-height: 1.05;
+    color: var(--c-paper);
+}
+
+.dash-header h1 em {
+    font-style: italic;
+    color: var(--c-amber);
+}
+
+.dash-card {
+    padding: var(--sp-6);
+    background: linear-gradient(165deg, rgba(13, 19, 34, 0.88), rgba(8, 12, 22, 0.92));
+    border: 1px solid var(--c-hairline);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-card), inset 0 1px 0 rgba(242, 169, 59, 0.35);
+}
+
+.dash-card-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--sp-5);
+}
+
+.dash-field span {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--c-paper-dim);
+    margin-bottom: var(--sp-1);
+}
+
+.dash-field strong {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--c-paper);
+    overflow-wrap: anywhere;
+}
+
+.dash-role {
+    color: var(--c-amber);
+}
+
+.dash-note {
+    margin: var(--sp-6) 0 var(--sp-5);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--c-paper-dim);
+    border-left: 2px solid rgba(242, 169, 59, 0.4);
+    padding-left: var(--sp-3);
+}
+
+/* actions row: primary link + quiet logout */
+.dash-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+/* primary action — amber, same weight as the login button */
+.dash-cta {
+    padding: 10px 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: #14100a;
+    background: linear-gradient(180deg, #ffc45e, var(--c-amber) 55%, var(--c-amber-deep));
+    border-radius: var(--r-sm);
+    box-shadow: var(--shadow-amber);
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+}
+
+.dash-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-amber-lift);
+    filter: brightness(1.04);
+}
+
+.dash-cta:focus-visible {
+    outline: 2px solid var(--c-paper);
+    outline-offset: 3px;
+}
+
+/* ghost button — quiet, the page's only secondary action */
+.dash-logout {
+    padding: 10px 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--c-paper-dim);
+    background: transparent;
+    border: 1px solid var(--c-hairline);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.dash-logout:hover {
+    color: var(--c-amber);
+    border-color: var(--c-amber);
+    box-shadow: 0 0 16px rgba(242, 169, 59, 0.15);
+}
+
+.dash-logout:focus-visible {
+    outline: 2px solid var(--c-amber);
+    outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+    .dash { padding: var(--sp-6) var(--sp-4); }
+    .dash-card { padding: var(--sp-5); }
+}

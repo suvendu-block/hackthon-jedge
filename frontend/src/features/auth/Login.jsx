@@ -1,7 +1,7 @@
 import React from 'react'
 import { useState, useEffect, useRef } from "react";
 import { Link } from 'react-router-dom';
-import { useAuth } from "../context/AuthContex.jsx";
+import { useAuth } from "./AuthContext.jsx";
 
 import "./Login.css";
 

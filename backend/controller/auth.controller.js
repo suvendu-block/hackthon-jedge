@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
-import GenrateToken from '../utils/genrateToken.js';
-import User from '../model/user.model.js';
+import generateToken from '../utils/generateToken.js';
+import User from '../models/user.model.js';
 import AppError from '../utils/AppError.js';
 import catchAsync from '../utils/catchAsync.js';
 
@@ -11,7 +11,7 @@ const signResponse = (user) => ({
     name: user.name,
     email: user.email,
     role: user.role,
-    token: GenrateToken(user._id)
+    token: generateToken(user._id)
 });
 
 

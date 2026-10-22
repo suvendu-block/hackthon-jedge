@@ -1,5 +1,5 @@
 import { createContext , useContext , useState } from 'react';
-import api from '../api/clients.js';
+import api from '@/features/shared/api/client.js';
 
 
 
@@ -14,7 +14,7 @@ export function AuthProvider({children}) {
 
 
     // login 
-    const login = async ({emila, password}) => {
+    const login = async ({email, password}) => {
         // restore on every refresh
         const {data}  = await api.post("/auth/login",{email,password});
 
@@ -32,7 +32,7 @@ export function AuthProvider({children}) {
             _id: data._id,
             name: data.name,
             email: data.email,
-            role: data.email
+            role: data.role
         });
         return data;
     }
