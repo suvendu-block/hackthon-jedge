@@ -5,6 +5,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
 import eventRoutes from './routes/event.routes.js';
 import userRoutes from './routes/user.routes.js';
+import evaluationRoutes from './routes/evaluation.routes.js';
 import { eventScoped as submissionEventRoutes, byId as submissionByIdRoutes } from './routes/submission.routes.js';
 import { notFound, errorHandler } from './middleware/error.middleware.js';
 
@@ -33,6 +34,7 @@ app.use('/api/auth',authRoutes);
 // submissions: nested under their event (mergeParams lifts eventId) + standalone by id
 app.use('/api/events/:eventId/submissions',submissionEventRoutes);
 app.use('/api/submissions',submissionByIdRoutes);
+app.use('/api/evaluations',evaluationRoutes);
 app.use('/api/events',eventRoutes);
 app.use('/api/users',userRoutes);
 

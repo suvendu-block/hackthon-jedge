@@ -236,6 +236,15 @@ export default function SubmissionsPage() {
                                     ))}
                                 </div>
                             )}
+
+                            {/* judges get a straight path to the scorecard */}
+                            {user.role === 'judge' && !isClosed && (
+                                <div className="sub-actions">
+                                    <Link to={`/scorecard/${s._id}`} className="sub-score">
+                                        score it →
+                                    </Link>
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ul>

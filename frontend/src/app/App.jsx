@@ -5,6 +5,7 @@ import Login from '@/features/auth/Login.jsx';
 import Dashboard from './Dashboard.jsx';
 import EventsPage from '@/features/events/EventsPage.jsx';
 import SubmissionsPage from '@/features/submissions/SubmissionsPage.jsx';
+import ScorecardPage from '@/features/judging/ScorecardPage.jsx';
 
 
 
@@ -44,6 +45,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SubmissionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/scorecard/:submissionId'
+          element={
+            <ProtectedRoute>
+              <ScorecardPage />
             </ProtectedRoute>
           }
         />

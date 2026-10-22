@@ -1,0 +1,377 @@
+/* ScorecardPage — the judge's hero screen. Running total always in view. */
+
+.score {
+    position: relative;
+    min-height: 100svh;
+    padding: var(--sp-8) var(--sp-5);
+    font-family: var(--font-body);
+    color: var(--c-paper);
+    background: var(--c-ink);
+    text-align: left;
+}
+
+.score-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.score-lamp {
+    position: absolute;
+    width: 85vmax;
+    height: 85vmax;
+    top: -44vmax;
+    left: -30vmax;
+    background: radial-gradient(closest-side, rgba(242, 169, 59, 0.13), transparent 70%);
+}
+
+.score-header,
+.score-error,
+.score-final,
+.score-list,
+.score-comments,
+.score-actions,
+.score-empty {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.score-back {
+    display: inline-block;
+    margin-bottom: var(--sp-3);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-paper-dim);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.score-back:hover { color: var(--c-amber); }
+
+.score-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-5);
+    margin-bottom: var(--sp-6);
+    flex-wrap: wrap;
+}
+
+.score-eyebrow {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    color: var(--c-amber);
+    margin-bottom: var(--sp-2);
+}
+
+.score-header h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(30px, 5vw, 44px);
+    line-height: 1.05;
+    color: var(--c-paper);
+}
+
+.score-tagline {
+    margin: var(--sp-2) 0 0;
+    font-size: 14px;
+    font-style: italic;
+    color: var(--c-paper-dim);
+}
+
+/* the running total — sticky-ish presence top-right */
+.score-total {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    padding: var(--sp-4) var(--sp-5);
+    background: linear-gradient(165deg, rgba(13, 19, 34, 0.9), rgba(8, 12, 22, 0.95));
+    border: 1px solid var(--c-hairline);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-card), inset 0 1px 0 rgba(242, 169, 59, 0.35);
+    min-width: 150px;
+    transition: border-color 0.3s;
+}
+
+.score-total.is-complete {
+    border-color: rgba(143, 211, 168, 0.45);
+}
+
+.score-total-num {
+    font-family: var(--font-display);
+    font-size: 52px;
+    line-height: 1;
+    color: var(--c-amber);
+    transition: color 0.3s;
+}
+
+.score-total.is-complete .score-total-num {
+    color: var(--c-verdant);
+}
+
+.score-total-den {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--c-paper-dim);
+    margin-top: 2px;
+}
+
+.score-total-note {
+    margin-top: var(--sp-2);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--c-paper-dim);
+}
+
+.score-error {
+    margin: 0 0 var(--sp-4);
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--c-danger);
+    background: rgba(255, 133, 119, 0.08);
+    border-left: 2px solid var(--c-danger);
+    border-radius: 0 6px 6px 0;
+}
+
+.score-final {
+    margin: 0 0 var(--sp-4);
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    color: var(--c-verdant);
+    background: rgba(143, 211, 168, 0.08);
+    border-left: 2px solid var(--c-verdant);
+    border-radius: 0 6px 6px 0;
+}
+
+.score-empty {
+    font-size: 14px;
+    color: var(--c-paper-dim);
+    font-style: italic;
+}
+
+/* ---------- criteria rows ---------- */
+
+.score-list {
+    list-style: none;
+    margin: 0 0 var(--sp-5);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+}
+
+.score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-5);
+    padding: var(--sp-4) var(--sp-5);
+    background: linear-gradient(165deg, rgba(13, 19, 34, 0.85), rgba(8, 12, 22, 0.9));
+    border: 1px solid var(--c-hairline);
+    border-radius: var(--r-md);
+    transition: border-color 0.2s;
+}
+
+.score-row:focus-within {
+    border-color: rgba(242, 169, 59, 0.35);
+}
+
+.score-crit {
+    flex: 1;
+    min-width: 0;
+}
+
+.score-crit-name {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--c-paper);
+    line-height: 1.15;
+}
+
+.score-crit-weight {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--c-amber);
+    letter-spacing: 0.06em;
+}
+
+.score-crit-desc {
+    margin: var(--sp-2) 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--c-paper-dim);
+}
+
+/* the slider + readout */
+.score-input {
+    flex: none;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.score-input input[type="range"] {
+    width: 100%;
+    accent-color: var(--c-amber);
+    cursor: pointer;
+}
+
+.score-input input[type="range"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.score-readout {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    justify-content: flex-end;
+}
+
+.score-value {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--c-paper);
+    min-width: 28px;
+    text-align: right;
+}
+
+.score-max {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--c-paper-dim);
+}
+
+.score-contrib {
+    margin-left: var(--sp-2);
+    padding: 2px 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--c-amber);
+    background: rgba(242, 169, 59, 0.1);
+    border: 1px solid rgba(242, 169, 59, 0.3);
+    border-radius: 999px;
+}
+
+/* ---------- comments ---------- */
+
+.score-comments {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: var(--sp-5);
+}
+
+.score-label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--c-paper-dim);
+}
+
+.score-comments textarea {
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: var(--font-body);
+    line-height: 1.6;
+    color: var(--c-paper);
+    background: rgba(239, 230, 211, 0.045);
+    border: 1px solid rgba(239, 230, 211, 0.14);
+    border-radius: var(--r-sm);
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.score-comments textarea:focus {
+    border-color: var(--c-amber);
+    box-shadow: 0 0 0 3px rgba(242, 169, 59, 0.16);
+}
+
+/* ---------- actions ---------- */
+
+.score-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+}
+
+.score-submit {
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    color: #14100a;
+    background: linear-gradient(180deg, #ffc45e, var(--c-amber) 55%, var(--c-amber-deep));
+    border: none;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    box-shadow: var(--shadow-amber);
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+}
+
+.score-submit:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-amber-lift);
+    filter: brightness(1.04);
+}
+
+.score-submit:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.score-draft {
+    padding: 12px 18px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-paper-dim);
+    background: transparent;
+    border: 1px solid var(--c-hairline);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.score-draft:hover:not(:disabled) {
+    color: var(--c-paper);
+    border-color: var(--c-paper-dim);
+}
+
+.score-saved {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--c-verdant);
+}
+
+@media (max-width: 640px) {
+    .score { padding: var(--sp-6) var(--sp-4); }
+    .score-row { flex-direction: column; align-items: stretch; }
+    .score-input { width: 100%; }
+    .score-total { align-items: flex-start; width: 100%; }
+}
