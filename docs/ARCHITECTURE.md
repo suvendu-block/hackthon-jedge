@@ -124,10 +124,12 @@ POST /api/submissions/:id/ai-analysis
 ```
 
 Provider selection: real key → OpenAI-compatible `/chat/completions`
-(20s timeout, one retry); `LLM_API_KEY=mock` → deterministic in-repo
-provider (dev, API tests, UI journey); unset → 503 `AI_DISABLED`
-(fail closed). No AI key names, provider URLs, or model IDs appear in the
-client bundle (M6 gate, verified by dist grep).
+(20s timeout, one network retry, one re-ask when sampled output is
+off-spec — reasons logged server-side, bad reports never stored);
+`LLM_API_KEY=mock` → deterministic in-repo provider (dev, API tests, UI
+journey); unset → 503 `AI_DISABLED` (fail closed). No AI key names,
+provider URLs, or model IDs appear in the client bundle (M6 gate,
+verified by dist grep).
 
 ### Frontend target — the "view" overhaul
 

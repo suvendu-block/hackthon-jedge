@@ -91,12 +91,12 @@ test('ai-analysis: assigned judge gets a complete, typed report', async () => {
     const { status, data } = await api(`/submissions/${world.sub._id}/ai-analysis`, { method: 'POST', token: world.judge.token });
 
     assert.equal(status, 201);
-    assert.equal(data.model, 'mock');            // dev server runs the in-repo provider
+    assert.ok(data.model, 'the report names whichever provider produced it'); // mock or real — either way it is recorded
     assert.ok(data.summary.length > 0);
     assert.ok(data.complexityAnalysis.length > 0);
 
-    // ADR-0009: every finding is typed
-    assert.ok(data.evidence.length >= 2);
+    // ADR-0009: every finding is typed (count varies by provider — types are the contract)
+    assert.ok(data.evidence.length >= 1);
     for (const e of data.evidence) {
         assert.ok(['verified-evidence', 'team-claim', 'ai-inference'].includes(e.type));
         assert.ok(e.text.length > 0);
@@ -112,9 +112,10 @@ test('ai-analysis: assigned judge gets a complete, typed report', async () => {
         assert.ok(s.confidence >= 0 && s.confidence <= 1);
     }
 
-    // never a report without limitations — and never the provider key
+    // never a report without limitations — and never provider secrets
     assert.ok(data.limitations.length >= 1);
-    assert.ok(!JSON.stringify(data).includes('apiKey'));
+    const blob = JSON.stringify(data);
+    assert.ok(!blob.includes('apiKey') && !blob.includes('sk-'), 'no key material in the response');
 });
 
 test('ai-analysis: GET returns the stored latest report', async () => {

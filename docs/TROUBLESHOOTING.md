@@ -184,6 +184,16 @@ Judge not in event's `judgeIds`, wrong event, or stale client cache.
   the whole request → review → accept → override flow works in dev, tests,
   and the UI journey. Leaving the key unset keeps the endpoints honestly
   fail-closed (503 `AI_DISABLED`).
+- **Real provider settings:** `LLM_BASE_URL` (default
+  `https://api.openai.com/v1`), `LLM_MODEL` (default `gpt-4o-mini`),
+  `LLM_TIMEOUT_MS` (default `20000`), `LLM_REASONING=off` to silence
+  thinking models — opt-in because plain OpenAI rejects unknown fields.
+  Dev runs OpenRouter + `qwen/qwen3.7-flash`.
+- **OpenRouter 404 "No allowed providers are available":** your account's
+  allowed-providers filter (openrouter.ai/settings/privacy) doesn't include
+  the model's host. Check
+  `GET /api/v1/models/<id>/endpoints` for `provider_name` entries your
+  account permits.
 - **Suggestions don't populate the scorecard:** by design — judges must
   click "accept" per criterion (FR-18).
 - **Repo content containing "ignore previous instructions":** must stay

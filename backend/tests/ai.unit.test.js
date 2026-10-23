@@ -83,6 +83,22 @@ test('validateReport: criterion names normalize to the rubric spelling', () => {
     assert.equal(report.suggestedScores[0].criterion, 'Impact');
 });
 
+test('validateReport: a suggestion quoting the rubric line "Impact (60%)" still matches', () => {
+    const raw = goodReport();
+    raw.suggestedScores[0].criterion = 'Impact (60%)';
+    const report = validateReport(raw, event.rubric);
+    assert.equal(report.suggestedScores[0].criterion, 'Impact');
+});
+
+test('validateReport: decimal suggestions round to whole slider steps', () => {
+    const raw = goodReport();
+    raw.suggestedScores[0].score = 6.6;
+    raw.suggestedScores[1].score = 6.2;
+    const report = validateReport(raw, event.rubric);
+    assert.equal(report.suggestedScores[0].score, 7);
+    assert.equal(report.suggestedScores[1].score, 6);
+});
+
 test('validateReport: unknown evidence type is rejected (nothing gets stored)', () => {
     const raw = goodReport();
     raw.evidence[0].type = ' vibes';
@@ -168,6 +184,22 @@ test('analyzeSubmission: unreadable provider output → AI_BAD_OUTPUT, nothing s
         ),
         (err) => err.code === 'AI_BAD_OUTPUT'
     );
+});
+
+test('analyzeSubmission: one bad sample gets asked again — only two strikes fail', async () => {
+    let calls = 0;
+    const { report } = await analyzeSubmission(
+        { event, submission },
+        {
+            env: { LLM_API_KEY: 'x' },
+            transport: async () => {
+                calls += 1;
+                return calls === 1 ? 'garbage on purpose' : JSON.stringify(goodReport());
+            }
+        }
+    );
+    assert.equal(report.suggestedScores.length, 2);
+    assert.equal(calls, 2, 'exactly one retry was needed');
 });
 
 test('analyzeSubmission: provider failure propagates as 503, never a crash', async () => {

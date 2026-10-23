@@ -44,6 +44,16 @@ versions follow [Semantic Versioning](https://semver.org/).
   latest, rate limit, event closed). M6 gate verified by grepping the
   built client bundle for AI key names, provider URLs, and model IDs —
   none present.
+- **Real provider wired (2026-10-23):** dev `backend/.env` points at
+  OpenRouter (`LLM_BASE_URL=https://openrouter.ai/api/v1`,
+  `LLM_MODEL=qwen/qwen3.7-flash`, `LLM_REASONING=off` — thinking off keeps
+  calls inside the 20s timeout). The key stays local (gitignored, never in
+  code or docs). Live tests and the journey are now provider-agnostic —
+  mock and real providers pass the same assertions. Hardening learned from
+  real samples: `validateReport` rounds suggestions to whole numbers
+  (slider `step=1`) and strips the rubric's own `(60%)` weight suffix
+  before name matching; off-spec samples are logged server-side and
+  re-asked once before the fail-closed 503.
 
 ### Added (2026-10-22) — Phase 5: leaderboard, release gating, CSV export
 

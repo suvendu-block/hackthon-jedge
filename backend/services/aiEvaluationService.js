@@ -60,19 +60,35 @@ const extractJson = (text) => {
  */
 export const validateReport = (json, rubric) => {
     const parsed = reportSchema.safeParse(json);
-    if (!parsed.success) throw badOutput();
+    if (!parsed.success) {
+        // server-side only — the client gets the 503, we keep the reasons
+        console.error('[ai] provider output failed schema:', JSON.stringify(parsed.error.issues.slice(0, 6)));
+        throw badOutput();
+    }
     const report = parsed.data;
 
     const names = rubric.map(c => c.name);
     const used = new Set();
 
     for (const s of report.suggestedScores) {
-        const match = names.find(n => n.toLowerCase() === s.criterion.trim().toLowerCase());
-        if (!match || used.has(match)) throw badOutput();   // unknown or duplicate criterion
+        // the prompt lists rubric lines as "- Name (60%): …" — models sometimes
+        // quote the weight suffix back; strip our own formatting before matching
+        const quoted = s.criterion.trim().replace(/\s*\(\d+(\.\d+)?%\)\s*$/, '');
+        const match = names.find(n => n.toLowerCase() === quoted.toLowerCase());
+        if (!match || used.has(match)) {
+            console.error(`[ai] unusable criterion in suggestion: ${JSON.stringify(s.criterion)}`);
+            throw badOutput();   // unknown or duplicate criterion
+        }
         used.add(match);
         s.criterion = match;
+        // sliders move in whole steps — a 6.5 suggestion would snap anyway,
+        // so normalize here instead of letting the UI silently disagree
+        s.score = Math.round(s.score);
     }
-    if (used.size !== rubric.length) throw badOutput();      // a criterion went unscored
+    if (used.size !== rubric.length) {
+        console.error(`[ai] criterion coverage gap: got [${[...used]}], rubric is [${names.join(', ')}]`);
+        throw badOutput();       // a criterion went unscored
+    }
 
     return report;
 };
@@ -99,6 +115,7 @@ Output rules:
 - The object must match exactly this shape:
 {"summary": string, "complexityAnalysis": string, "evidence": [{"type": "verified-evidence" | "team-claim" | "ai-inference", "text": string, "source": string}], "suggestedScores": [{"criterion": string, "score": number 0-10, "rationale": string, "confidence": number 0-1}], "limitations": [string]}
 - "criterion" must repeat the criterion names given in the user message, one suggestion per criterion.
+- "score" must be a whole number 0-10 (the judge's slider moves in whole steps).
 - Every suggestedScores entry needs a rationale and a confidence.
 - "limitations" must be non-empty: list what you could not see or verify.
 
@@ -152,6 +169,8 @@ const httpTransport = async (bundle, cfg) => {
                     model: cfg.model,
                     temperature: 0.2,
                     response_format: { type: 'json_object' },
+                    // only when explicitly asked — some providers reject unknown fields
+                    ...(cfg.reasoningOff ? { reasoning: { enabled: false } } : {}),
                     messages: [
                         { role: 'system', content: bundle.system },
                         { role: 'user', content: bundle.user }
@@ -251,36 +270,53 @@ const config = (env) => ({
     apiKey: env.LLM_API_KEY,
     model: env.LLM_MODEL || 'gpt-4o-mini',
     baseUrl: env.LLM_BASE_URL || 'https://api.openai.com/v1',
-    timeoutMs: Number(env.LLM_TIMEOUT_MS) || 20000
+    timeoutMs: Number(env.LLM_TIMEOUT_MS) || 20000,
+    // thinking models can sit silent past the timeout — drafts don't need
+    // deep chain-of-thought, and speed beats drama for judges waiting on a page
+    reasoningOff: env.LLM_REASONING === 'off'
 });
 
 /**
  * run one analysis: prompt → provider → validate. returns { report, model }.
  * no key at all → 503 AI_DISABLED (fail closed — same story the docs tell).
+ * a sampled model occasionally returns something off-spec: log why, ask once
+ * more, and only then fail closed — bad output is never stored either way.
  * transport/env injectable so the unit tests never touch the network.
  */
-export const analyzeSubmission = async ({ event, submission }, { transport = httpTransport, env = process.env } = {}) => {
+export const analyzeSubmission = async ({ event, submission }, { transport = httpTransport, env = process.env, attempts = 2 } = {}) => {
     const cfg = config(env);
     if (!cfg.apiKey) {
         throw new AppError('AI analysis is not enabled on this server', 503, 'AI_DISABLED');
     }
 
     const bundle = buildPrompt(event, submission);
+    const isMock = cfg.apiKey === 'mock';
 
-    let raw;
-    if (cfg.apiKey === 'mock') {
-        raw = JSON.stringify(mockReport(event, submission));
-    } else {
-        raw = await transport(bundle, cfg);
+    // provider text → object, or fail closed (and say why, server-side)
+    const parse = (raw) => {
+        try {
+            return JSON.parse(extractJson(raw));
+        } catch {
+            console.error('[ai] provider output was not JSON:', String(raw).slice(0, 200));
+            throw badOutput();
+        }
+    };
+
+    let lastError = null;
+    for (let tryNo = 1; tryNo <= attempts; tryNo++) {
+        const raw = isMock
+            ? JSON.stringify(mockReport(event, submission))
+            : await transport(bundle, cfg);
+
+        try {
+            const report = validateReport(parse(raw), event.rubric);
+            return { report, model: isMock ? 'mock' : cfg.model };
+        } catch (err) {
+            if (!(err instanceof AppError) || err.code !== 'AI_BAD_OUTPUT') throw err;
+            lastError = err;
+            if (tryNo < attempts) console.warn(`[ai] invalid output on try ${tryNo}/${attempts} — asking again`);
+        }
     }
 
-    let json;
-    try {
-        json = JSON.parse(extractJson(raw));
-    } catch {
-        throw badOutput();
-    }
-
-    const report = validateReport(json, event.rubric);
-    return { report, model: cfg.apiKey === 'mock' ? 'mock' : cfg.model };
+    throw lastError || badOutput();
 };

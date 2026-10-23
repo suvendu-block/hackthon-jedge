@@ -361,10 +361,10 @@ try {
 
         // the AI draft — request it, read it, accept one number, keep judging anyway
         await page.click('.ai-ask');
-        await page.waitForSelector('.ai-panel .ai-scores', { timeout: 20000 });
+        await page.waitForSelector('.ai-panel .ai-scores', { timeout: 30000 });   // real LLM round-trip (+ retry if a sample comes back off-spec)
         check((await page.locator('.ai-chip').textContent()).trim() === 'AI', 'assistant panel wears the AI chip');
         const evTypes = await page.locator('.ai-ev-type').allTextContents();
-        check(evTypes.some(t => t.includes('verified')) && evTypes.some(t => t.includes('claimed')), `evidence rows carry type labels: ${evTypes.join(' / ')}`);
+        check(evTypes.length >= 1 && evTypes.every(t => /verified|claimed|inferred/.test(t)), `evidence rows carry type labels: ${evTypes.join(' / ')}`);
         check(await page.locator('.ai-limits li').count() >= 1, 'limitations are spelled out');
         check((await page.locator('.ai-score-num').first().textContent()).includes('confidence'), 'every suggestion states its confidence');
 
