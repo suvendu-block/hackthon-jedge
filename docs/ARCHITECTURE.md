@@ -105,12 +105,29 @@ HTTP request
    (`schema/auth.schema.js` + `middleware/validate.middleware.js`). Strict
    schemas reject unknown fields → 422 `VALIDATION_ERROR`. Controllers keep
    manual checks only as a safety net.
-4. **`services/` layer** lands with Phase 4 scoring and Phase 6 AI —
-   pure functions, unit-testable without DB.
+4. ✅ **`services/` layer** — `scoringService.js` (Phase 4) and
+   `aiEvaluationService.js` (Phase 6): pure functions where possible,
+   unit-testable without DB; the AI service takes injectable transport/env.
 5. **Config module** — `config/index.js` reads/validates env once at boot
    (fails fast if `JWT_SECRET` missing instead of crashing at first login).
 6. **Test layout** — `tests/unit/`, `tests/integration/`, supertest against an
    exported `app` (no live-server dependency), per [TESTING.md](TESTING.md).
+
+**Phase 6 AI request path (as built, 2026-10-23):**
+
+```
+POST /api/submissions/:id/ai-analysis
+  → protect → requireRole('judge') → rateLimit (10/h per judge, in-memory)
+  → aiAnalysis.controller: assigned-judge + event-status gates
+  → aiEvaluationService.analyzeSubmission: prompt → provider → strict zod
+  → AIAnalysis.create → 201 report        GET … → latest stored report
+```
+
+Provider selection: real key → OpenAI-compatible `/chat/completions`
+(20s timeout, one retry); `LLM_API_KEY=mock` → deterministic in-repo
+provider (dev, API tests, UI journey); unset → 503 `AI_DISABLED`
+(fail closed). No AI key names, provider URLs, or model IDs appear in the
+client bundle (M6 gate, verified by dist grep).
 
 ### Frontend target — the "view" overhaul
 
@@ -136,7 +153,7 @@ Per-resource API modules are **colocated in their feature**
 pages still never call axios directly.
 
 Repo-root additions: `scripts/e2e-walkthrough.mjs` (live API walkthrough,
-18 checks) and `e2e/ui-journey.mjs` (Playwright user journey, 102 checks) —
+18 checks) and `e2e/ui-journey.mjs` (Playwright user journey, 110 checks) —
 both need backend :3000 and frontend :5173 running.
 
 `@` → `src` alias configured in `vite.config.js`.
@@ -145,8 +162,6 @@ both need backend :3000 and frontend :5173 running.
 
 ```
 frontend/src/
-├── features/
-│   └── judging/               # + evidence badges, AI report panel (Phase 6)
 ├── components/ui/             # design system primitives (Button, Card, Badge…)
 └── hooks/  context/  utils/
 ```

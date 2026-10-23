@@ -87,11 +87,11 @@ Declared ADR-0013 — rewrite, not patch. Details:
 
 ## Phase 6 — AI Evaluation Assistant
 
-- [ ] Server-side `aiEvaluationService` (prompts embed rubric + AI rules)
-- [ ] Evidence typing: verified / claimed / inferred
-- [ ] Confidence and limitations on every suggestion; judge-override only
-- [ ] Rate limiting, timeout, schema validation, 503 failure policy
-- [ ] Report UI with evidence badges and accept-suggestion flow
+- [x] Server-side `aiEvaluationService` (prompts embed rubric + AI rules)
+- [x] Evidence typing: verified / claimed / inferred
+- [x] Confidence and limitations on every suggestion; judge-override only
+- [x] Rate limiting, timeout, schema validation, 503 failure policy
+- [x] Report UI with evidence badges and accept-suggestion flow
 
 ## Phase 7 — Evidence Depth (GitHub & Documents)
 

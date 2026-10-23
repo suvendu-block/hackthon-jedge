@@ -179,6 +179,11 @@ Judge not in event's `judgeIds`, wrong event, or stale client cache.
 - **503 on "Request AI analysis":** missing/invalid `LLM_API_KEY`, provider
   down, timeout, or schema-invalid output (service fails closed by design).
   Check server logs; never display a partial report.
+- **No key while developing:** set `LLM_API_KEY=mock` in `backend/.env` —
+  the deterministic in-repo provider answers without network or secret, so
+  the whole request → review → accept → override flow works in dev, tests,
+  and the UI journey. Leaving the key unset keeps the endpoints honestly
+  fail-closed (503 `AI_DISABLED`).
 - **Suggestions don't populate the scorecard:** by design — judges must
   click "accept" per criterion (FR-18).
 - **Repo content containing "ignore previous instructions":** must stay

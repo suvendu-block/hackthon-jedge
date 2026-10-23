@@ -6,6 +6,45 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (2026-10-23) — Phase 6: AI evaluation assistant
+
+- **Phase 6 — AI Evaluation Assistant.** `services/aiEvaluationService.js`
+  runs server-side only (ADR-0007): builds the prompt from the event rubric
+  + all ten AI Evaluation Rules in PROJECT.md, wraps submission content in
+  `<untrusted_submission>` tags (injection rides along as data, never
+  instructions), calls an OpenAI-compatible `/chat/completions` endpoint
+  with a 20s AbortController timeout + one retry, and validates every
+  response against a strict zod schema. Malformed output → 503
+  `AI_BAD_OUTPUT`, **never stored**.
+- **`AIAnalysis` collection** (ADR-0008 — separate, versioned, never
+  touches judge data): `summary`, `complexityAnalysis`, typed `evidence`
+  (`verified-evidence | team-claim | ai-inference`, ADR-0009), one
+  `suggestedScores` entry per rubric criterion with `rationale` +
+  `confidence` (0–1), non-empty `limitations`, `model`; index
+  `{ submission, createdAt }`.
+- **Failure policy, fail closed.** No `LLM_API_KEY` → 503 `AI_DISABLED`;
+  provider timeout/5xx → retry once, then 503 `AI_UNAVAILABLE`; schema
+  violations → 503 `AI_BAD_OUTPUT`. `LLM_API_KEY=mock` switches to the
+  deterministic in-repo provider (no network, no secret) so dev, the API
+  tests, and the UI journey walk the full flow keylessly.
+- **Gating + metering.** Analysis endpoints require the *assigned* judge
+  (team → route-level `FORBIDDEN`, unassigned judge → `NOT_ASSIGNED`,
+  closed event → `EVENT_CLOSED`); new in-memory sliding-window rate-limit
+  middleware meters 10 analyses/hour per judge → 429 `RATE_LIMITED`.
+- **Scorecard AI panel.** "Request a draft" → summary, complexity note,
+  evidence rows with glyph **and** text labels (✓ verified / ◆ claimed /
+  ≈ inferred — never color alone), per-criterion draft score with
+  confidence %, and a "what this draft cannot know" limitations block.
+  "Use this score" only prefills the slider behind a confirm — nothing
+  reaches the server until the judge submits their own scorecard; the
+  buttons lock after submit.
+- **Tests.** `tests/ai.unit.test.js` (18: prompt rules, injection
+  containment, strict-schema rejections, deterministic mock, fail-closed
+  paths) + `tests/ai.test.js` (6 live: gating, typed report shape, GET
+  latest, rate limit, event closed). M6 gate verified by grepping the
+  built client bundle for AI key names, provider URLs, and model IDs —
+  none present.
+
 ### Added (2026-10-22) — Phase 5: leaderboard, release gating, CSV export
 
 - **Phase 5 — Leaderboard & Export.** `buildLeaderboard` joins

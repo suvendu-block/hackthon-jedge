@@ -359,7 +359,26 @@ try {
         check((await page.locator('.score-total-note').textContent()) === '0 of 2 scored', 'progress reads 0 of 2');
         check(await page.locator('.score-submit').isDisabled(), 'submit blocked while incomplete');
 
-        // Impact 9/10 → 9/10×60 = 54
+        // the AI draft — request it, read it, accept one number, keep judging anyway
+        await page.click('.ai-ask');
+        await page.waitForSelector('.ai-panel .ai-scores', { timeout: 20000 });
+        check((await page.locator('.ai-chip').textContent()).trim() === 'AI', 'assistant panel wears the AI chip');
+        const evTypes = await page.locator('.ai-ev-type').allTextContents();
+        check(evTypes.some(t => t.includes('verified')) && evTypes.some(t => t.includes('claimed')), `evidence rows carry type labels: ${evTypes.join(' / ')}`);
+        check(await page.locator('.ai-limits li').count() >= 1, 'limitations are spelled out');
+        check((await page.locator('.ai-score-num').first().textContent()).includes('confidence'), 'every suggestion states its confidence');
+
+        // accept the Impact suggestion — prefills the slider, behind a confirm
+        const impactRow = page.locator('.ai-score', { hasText: 'Impact' });
+        const suggestedTxt = await impactRow.locator('.ai-score-num').textContent();
+        const suggestedVal = Number(suggestedTxt.match(/draft (\d+)/)[1]);
+        dialogs.length = 0;
+        await impactRow.locator('.ai-use').click();
+        check(dialogs.some(d => d.includes('AI draft')), `accept asks first: "${dialogs[0] || 'none'}"`);
+        await page.waitForFunction((v) => document.querySelector('input[aria-label="Impact score"]')?.value === String(v), suggestedVal);
+        check(true, `slider took the draft value ${suggestedVal} — still the judge's to move`);
+
+        // Impact 9/10 → 9/10×60 = 54 — and there's the override, AI included
         await setRange(page, 'Impact score', 9);
         await page.waitForFunction(() => document.querySelector('.score-total-num')?.textContent === '54');
         check(true, 'Impact 9 → running total 54');
@@ -393,6 +412,8 @@ try {
         await page.waitForSelector('.score-final', { timeout: 20000 });
         check((await page.locator('.score-total-num').textContent()) === '82', 'reload keeps total at 82');
         check((await page.locator('.score-comments textarea').isDisabled()), 'justification read-only after submit');
+        check(await page.locator('.ai-panel .ai-scores').count() === 1, 'the stored AI draft rides along after reload');
+        check(await page.locator('.ai-use').first().isDisabled(), 'suggestions lock once the scorecard is submitted');
 
         // the results door is already on the card — but it stays shut for judges
         await page.goto(`${UI}/events`);

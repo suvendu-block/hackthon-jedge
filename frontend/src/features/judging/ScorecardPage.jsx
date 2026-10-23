@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getScorecard, saveDraft, submitEvaluation } from './judging.api.js';
+import { getScorecard, saveDraft, submitEvaluation, requestAnalysis, getAnalysis } from './judging.api.js';
 import './ScorecardPage.css';
+
+// evidence badge labels — icon + text, never color alone (accessibility)
+const EV_LABEL = {
+    'verified-evidence': '✓ verified',
+    'team-claim': '◆ claimed',
+    'ai-inference': '≈ inferred'
+};
 
 // running-total mirror of backend scoringService (ADR-0005: server is the
 // authority — this is only the live preview the judge sees while typing)
@@ -22,6 +29,9 @@ export default function ScorecardPage() {
     const [savedAt, setSavedAt] = useState(null);
     const [busy, setBusy] = useState('');
     const [error, setError] = useState('');
+    const [ai, setAi] = useState(null);          // latest AI draft report, if any
+    const [aiBusy, setAiBusy] = useState(false);
+    const [aiError, setAiError] = useState('');
 
     useEffect(() => {
         let ignore = false;   // StrictMode mounts twice — a slow stale load must
@@ -39,6 +49,15 @@ export default function ScorecardPage() {
             .catch((err) => {
                 if (!ignore) setError(err.response?.data?.error?.message || 'Could not load scorecard');
             });
+        return () => { ignore = true; };
+    }, [submissionId]);
+
+    // a stored AI draft rides along with the scorecard (404 = none yet)
+    useEffect(() => {
+        let ignore = false;
+        getAnalysis(submissionId)
+            .then((d) => { if (!ignore) setAi(d); })
+            .catch(() => { /* none yet — the judge can ask for one */ });
         return () => { ignore = true; };
     }, [submissionId]);
 
@@ -74,6 +93,30 @@ export default function ScorecardPage() {
         } finally {
             setBusy('');
         }
+    };
+
+    const handleAskAi = async () => {
+        setAiBusy(true);
+        setAiError('');
+        try {
+            setAi(await requestAnalysis(submissionId));
+        } catch (err) {
+            setAiError(err.response?.data?.error?.message || 'AI analysis unavailable');
+        } finally {
+            setAiBusy(false);
+        }
+    };
+
+    // "accept" only prefills the slider — the judge can still change it, and
+    // nothing reaches the server until they submit the scorecard themselves
+    const handleUse = (s) => {
+        const crit = rubric.find(c => c.name.toLowerCase() === s.criterion.toLowerCase());
+        if (!crit) return;
+        const ok = window.confirm(
+            `Use the AI draft of ${s.score}/10 for "${crit.name}"? You can still change it — nothing is submitted until you submit the scorecard.`
+        );
+        if (!ok) return;
+        setScore(crit._id, s.score);
     };
 
     const handleSubmit = async () => {
@@ -165,6 +208,65 @@ export default function ScorecardPage() {
                     );
                 })}
             </ul>
+
+            {/* ---------- AI draft — optional, the judge decides alone ---------- */}
+            <div className="ai-panel">
+                <div className="ai-head">
+                    <span className="ai-chip">AI</span>
+                    <span className="ai-head-label">assistant draft — a starting point, never a verdict</span>
+                    {!ai && !aiBusy && (
+                        <button className="ai-ask" onClick={handleAskAi}>request a draft</button>
+                    )}
+                    {aiBusy && <span className="ai-busy">reading the submission…</span>}
+                </div>
+
+                {aiError && <p role="alert" className="score-error">{aiError}</p>}
+
+                {ai && (
+                    <>
+                        <p className="ai-summary">{ai.summary}</p>
+                        <p className="ai-complex">{ai.complexityAnalysis}</p>
+
+                        <span className="score-label">what it is resting on</span>
+                        <ul className="ai-evidence">
+                            {ai.evidence.map((e, i) => (
+                                <li key={i} className={`ai-ev ai-ev--${e.type}`}>
+                                    <span className="ai-ev-type">{EV_LABEL[e.type] || e.type}</span>
+                                    <span className="ai-ev-text">
+                                        {e.text}
+                                        {e.source && <em className="ai-ev-src"> — {e.source}</em>}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+
+                        <span className="score-label">suggested starting points</span>
+                        <ul className="ai-scores">
+                            {ai.suggestedScores.map((s) => (
+                                <li key={s.criterion} className="ai-score">
+                                    <div className="ai-score-top">
+                                        <strong className="ai-score-crit">{s.criterion}</strong>
+                                        <span className="ai-score-num">
+                                            draft {s.score}/10 · confidence {Math.round(s.confidence * 100)}%
+                                        </span>
+                                    </div>
+                                    <p className="ai-rationale">{s.rationale}</p>
+                                    <button className="ai-use" onClick={() => handleUse(s)} disabled={submitted}>
+                                        use this score
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+
+                        <div className="ai-limits">
+                            <span className="score-label">what this draft cannot know</span>
+                            <ul>
+                                {ai.limitations.map((l, i) => <li key={i}>{l}</li>)}
+                            </ul>
+                        </div>
+                    </>
+                )}
+            </div>
 
             {/* ---------- comments ---------- */}
             <div className="score-comments">

@@ -49,22 +49,32 @@ Run everything in CI on each pull request (BL-22).
 | `submissions.test.js` | team submits to active event; closed event rejected; judge sees only assigned; URL allowlist rejects `http://169.254.169.254`; team edits own only |
 | `evaluations.test.js` | draft save; submit transition; one eval per judge per submission (409); auto-computed total present; score range enforced |
 | `leaderboard.test.js` | ranking order + hand-checked averages; draft evaluations excluded; standings sealed for teams **and** judges pre-release; organizer preview; release rules (owner-only, closed-only, once-only); status locked after release; CSV shape + gating |
-| `aiAnalysis.test.js` | assigned judge only; non-assigned 403; rate limit 429; malformed LLM response → 503, nothing stored; stored report has evidence types |
+| `ai.test.js` (API) + `ai.unit.test.js` (service) | assigned judge only — team gets route-level 403, unassigned judge 403 `NOT_ASSIGNED`; typed report shape (evidence types, rationale, confidence 0–1); GET returns latest; rate limit 429 `RATE_LIMITED`; `EVENT_CLOSED` after close; unit: ten rules in prompt, untrusted-block injection containment, strict schema rejects malformed output (nothing stored), no key → fail-closed 503, mock is deterministic |
 
 ## 5. AI Evaluation Tests
 
-- [ ] Prompt includes the event rubric and all ten AI Evaluation Rules
-- [ ] External content is wrapped in untrusted delimiters; prompt-injection
+- [x] Prompt includes the event rubric and all ten AI Evaluation Rules
+      (unit: every rule asserted verbatim in the system prompt)
+- [x] External content is wrapped in untrusted delimiters; prompt-injection
       sample (e.g. repo README containing "ignore previous instructions") is
       contained inside the data block, never a system instruction
-- [ ] Response fails closed: schema-invalid output is rejected, not stored
-- [ ] Every `suggestedScores` entry has rationale and confidence
-- [ ] Evidence entries carry only allowed types:
+      (unit: payload asserted present inside the block, absent outside it)
+- [x] Response fails closed: schema-invalid output is rejected, not stored
+      (unit: strict zod schema — bad enum, missing/unknown criterion, extra
+      field, out-of-range score, missing limitations → 503 `AI_BAD_OUTPUT`;
+      controller persists only after validation passes)
+- [x] Every `suggestedScores` entry has rationale and confidence
+- [x] Evidence entries carry only allowed types:
       `verified-evidence | team-claim | ai-inference`
-- [ ] Missing data produces an "unknown" note, not a low suggested score
-- [ ] Suggested scores never write to `Evaluation.criterionScores` without an
+- [x] Missing data produces an "unknown" note, not a low suggested score
+      (unit: bare submission — floors hold ≥ 3, gap named in limitations)
+- [x] Suggested scores never write to `Evaluation.criterionScores` without an
       explicit judge action (test at API and UI level)
-- [ ] No `LLM_API_KEY` present in any client build artifact
+      (API: analysis endpoints never touch Evaluation; UI journey: "use this
+      score" prefills the slider behind a confirm, judge submits their own
+      final numbers)
+- [x] No `LLM_API_KEY` present in any client build artifact
+      (dist bundle grep gate: no key names, provider URLs, or model IDs)
 
 ## 6. Security Testing
 
@@ -83,8 +93,11 @@ Run everything in CI on each pull request (BL-22).
 - [ ] Rubric editor: live total updates; publish disabled unless Σ = 100%
 - [x] Scorecard: running total matches `scoringService` for the same inputs
       (UI journey asserts hand math: 9→54, +7→82, 5+5→50)
-- [ ] AI report: evidence badges render with **text labels** (not color alone)
-- [ ] Accept-suggestion requires explicit confirmation
+- [x] AI report: evidence badges render with **text labels** (not color alone)
+      (journey asserts `.ai-ev-type` contents: "✓ verified" / "◆ claimed")
+- [x] Accept-suggestion requires explicit confirmation
+      (journey: dialog fires before the slider moves; override after accept
+      still wins)
 - [x] Unpublished leaderboard hidden from team role (and judges — sealed
       screen asserted for both; organizer preview + release + CSV download
       all walked in the UI journey)
