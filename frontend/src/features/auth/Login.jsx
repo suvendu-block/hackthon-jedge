@@ -189,6 +189,7 @@ export default function Login() {
                 <p className="login-footer">
                     Don't have an account? <Link to="/register">Create account</Link>
                 </p>
+            </div>
         </main>
     )
 }
