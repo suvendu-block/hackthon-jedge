@@ -354,9 +354,54 @@
     outline-offset: 3px;
 }
 
-/*  already-logged-in state  */
+.login-footer {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--c-paper-dim);
+    font-family: var(--font-body);
+}
 
-.login-already {
+.login-footer a {
+    color: var(--c-amber);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(242, 169, 59, 0.4);
+    padding-bottom: 1px;
+}
+
+.login-footer a:hover {
+    border-bottom-color: var(--c-amber);
+}
+
+.login-select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: var(--font-body);
+    color: var(--c-paper);
+    background: rgba(239, 230, 211, 0.045);
+    border: 1px solid rgba(239, 230, 211, 0.14);
+    border-radius: 9px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.login-select:hover {
+    border-color: rgba(239, 230, 211, 0.25);
+}
+
+.login-select:focus {
+    border-color: var(--c-amber);
+    background: rgba(242, 169, 59, 0.05);
+    box-shadow: 0 0 0 3px rgba(242, 169, 59, 0.16);
+}
+
+.login-select option {
+    background: var(--c-ink);
+    color: var(--c-paper);
+}
     position: fixed;
     inset: 0;
     z-index: 5;

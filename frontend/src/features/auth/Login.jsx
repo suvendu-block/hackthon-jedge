@@ -185,7 +185,10 @@ export default function Login() {
                         {loading ? "Logging in..." : "Enter the judging floor"}
                     </button>
                 </form>
-            </div>
+
+                <p className="login-footer">
+                    Don't have an account? <Link to="/register">Create account</Link>
+                </p>
         </main>
     )
 }
