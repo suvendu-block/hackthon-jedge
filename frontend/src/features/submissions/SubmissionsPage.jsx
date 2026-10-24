@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext.jsx';
 import {
-    listSubmissions, createSubmission, updateSubmission, deleteSubmission
+    listSubmissions, createSubmission, updateSubmission, deleteSubmission,
+    getRepoGrant, grantRepo, revokeRepo, getInsight, refreshInsight,
+    listDocuments, uploadDocument, removeDocument, documentBlob,
+    checkDemo, getDemoCheck
 } from './submissions.api.js';
 import { getEvent } from '@/features/events/events.api.js';
 import './SubmissionsPage.css';
@@ -22,8 +25,24 @@ export default function SubmissionsPage() {
     // form state — one shared form for create + edit
     const [editingId, setEditingId] = useState(null);   // null = creating
     const [showForm, setShowForm] = useState(false);
-    const [form, setForm] = useState({ projectName: '', tagline: '', description: '', links: [] });
+    const [form, setForm] = useState({
+        projectName: '', tagline: '', description: '', links: [],
+        repositoryUrl: '', demoUrl: ''
+    });
     const [saving, setSaving] = useState(false);
+
+    // phase 7 — the team's evidence bench (grant, insight, documents, demo).
+    // loaded only for the team's own entry; everyone else reads these on
+    // the scorecard instead.
+    const [grant, setGrant] = useState(null);
+    const [showGrant, setShowGrant] = useState(false);
+    const [tokenInput, setTokenInput] = useState('');
+    const [consent, setConsent] = useState(false);
+    const [insight, setInsight] = useState(null);
+    const [docs, setDocs] = useState([]);
+    const [demo, setDemo] = useState(null);
+    const [evBusy, setEvBusy] = useState('');   // which bench action is running
+    const [evMsg, setEvMsg] = useState('');     // small inline status line
 
     const isClosed = event?.status === 'closed';
     // a team that already submitted switches to edit mode
@@ -64,18 +83,150 @@ export default function SubmissionsPage() {
             projectName: sub.projectName,
             tagline: sub.tagline || '',
             description: sub.description || '',
-            links: (sub.links || []).map(l => ({ ...l }))
+            links: (sub.links || []).map(l => ({ ...l })),
+            repositoryUrl: sub.repositoryUrl || '',
+            demoUrl: sub.demoUrl || ''
         });
         setShowForm(true);
     };
 
     const startNew = () => {
         setEditingId(null);
-        setForm({ projectName: '', tagline: '', description: '', links: [] });
+        setForm({
+            projectName: '', tagline: '', description: '', links: [],
+            repositoryUrl: '', demoUrl: ''
+        });
         setShowForm(true);
     };
 
     const setField = (field, value) => setForm({ ...form, [field]: value });
+
+    // pull the evidence bench for the team's own submission — every call
+    // tolerates "nothing there yet" (404/403 just mean: not set up)
+    useEffect(() => {
+        if (!mySub?._id || !isTeam) return;
+        let ignore = false;
+        (async () => {
+            const [g, i, d, dc] = await Promise.all([
+                getRepoGrant(mySub._id).catch(() => ({ grant: null })),
+                getInsight(mySub._id).catch(() => ({ insight: null })),
+                listDocuments(mySub._id).catch(() => ({ documents: [] })),
+                getDemoCheck(mySub._id).catch(() => ({ check: null }))
+            ]);
+            if (ignore) return;
+            setGrant(g.grant);
+            setInsight(i.insight);
+            setDocs(d.documents || []);
+            setDemo(dc.check);
+        })();
+        return () => { ignore = true; };
+    }, [mySub?._id, isTeam]);
+
+    // ---- bench actions -----------------------------------------------------
+
+    const benchError = (err, fallback) =>
+        setEvMsg(err.response?.data?.error?.message || fallback);
+
+    const handleGrant = async (e) => {
+        e.preventDefault();
+        setEvBusy('grant');
+        setEvMsg('');
+        try {
+            const r = await grantRepo(mySub._id, tokenInput ? { token: tokenInput.trim() } : {});
+            setGrant(r.grant);
+            setShowGrant(false);
+            setTokenInput('');
+            setConsent(false);
+            setEvMsg('access granted and recorded');
+        } catch (err) {
+            benchError(err, 'could not grant access');
+        } finally {
+            setEvBusy('');
+        }
+    };
+
+    const handleRevoke = async () => {
+        if (!window.confirm('Withdraw repository access? Judges can no longer refresh the read.')) return;
+        setEvBusy('grant');
+        setEvMsg('');
+        try {
+            const r = await revokeRepo(mySub._id);
+            setGrant(r.grant);
+            setEvMsg('access withdrawn — the record of authorization stays');
+        } catch (err) {
+            benchError(err, 'could not withdraw access');
+        } finally {
+            setEvBusy('');
+        }
+    };
+
+    const handleAnalyze = async () => {
+        setEvBusy('insight');
+        setEvMsg('');
+        try {
+            const r = await refreshInsight(mySub._id);
+            setInsight(r.insight);
+            setEvMsg('repository read — the facts below came from this server, not the team');
+        } catch (err) {
+            benchError(err, 'could not read the repository');
+        } finally {
+            setEvBusy('');
+        }
+    };
+
+    const handleUpload = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';   // let the same file be re-picked after a delete
+        if (!file) return;
+        setEvBusy('upload');
+        setEvMsg('');
+        try {
+            await uploadDocument(mySub._id, file);
+            setDocs((await listDocuments(mySub._id)).documents || []);
+            setEvMsg(`uploaded ${file.name}`);
+        } catch (err) {
+            benchError(err, 'upload failed');
+        } finally {
+            setEvBusy('');
+        }
+    };
+
+    const handleDownloadDoc = async (doc) => {
+        try {
+            const blob = await documentBlob(mySub._id, doc._id);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = doc.originalName;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            benchError(err, 'download failed');
+        }
+    };
+
+    const handleDeleteDoc = async (doc) => {
+        if (!window.confirm(`Remove "${doc.originalName}"?`)) return;
+        try {
+            await removeDocument(mySub._id, doc._id);
+            setDocs(docs.filter(d => d._id !== doc._id));
+        } catch (err) {
+            benchError(err, 'could not remove the file');
+        }
+    };
+
+    const handleDemoCheck = async () => {
+        setEvBusy('demo');
+        setEvMsg('');
+        try {
+            const r = await checkDemo(mySub._id);
+            setDemo(r.check);
+        } catch (err) {
+            benchError(err, 'demo check failed');
+        } finally {
+            setEvBusy('');
+        }
+    };
 
     const setLink = (i, field, value) => {
         const links = form.links.map((l, idx) => (idx === i ? { ...l, [field]: value } : l));
@@ -183,6 +334,27 @@ export default function SubmissionsPage() {
                         />
                     </label>
 
+                    {/* typed evidence fields — the server analyzes these (Phase 7) */}
+                    <label className="subs-field">
+                        <span>repository (github)</span>
+                        <input
+                            value={form.repositoryUrl}
+                            onChange={(e) => setField('repositoryUrl', e.target.value)}
+                            placeholder="https://github.com/yourteam/yourrepo"
+                            maxLength={300}
+                        />
+                    </label>
+
+                    <label className="subs-field">
+                        <span>demo url</span>
+                        <input
+                            value={form.demoUrl}
+                            onChange={(e) => setField('demoUrl', e.target.value)}
+                            placeholder="https://your-app.example.com — where judges can try it"
+                            maxLength={500}
+                        />
+                    </label>
+
                     {/* links — with the http(s) allowlist shown inline */}
                     <div className="subs-links">
                         <div className="subs-links-head">
@@ -243,6 +415,22 @@ export default function SubmissionsPage() {
                             {s.tagline && <p className="sub-tagline">{s.tagline}</p>}
                             {s.description && <p className="sub-desc">{s.description}</p>}
 
+                            {/* typed evidence links — repo + demo, first-class now */}
+                            {(s.repositoryUrl || s.demoUrl) && (
+                                <div className="sub-typed-links">
+                                    {s.repositoryUrl && (
+                                        <a className="sub-link" href={s.repositoryUrl} target="_blank" rel="noopener noreferrer">
+                                            ⌗ repository
+                                        </a>
+                                    )}
+                                    {s.demoUrl && (
+                                        <a className="sub-link" href={s.demoUrl} target="_blank" rel="noopener noreferrer">
+                                            ▷ demo
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+
                             {s.links?.length > 0 && (
                                 <div className="sub-links">
                                     {s.links.map((l, i) => (
@@ -250,6 +438,191 @@ export default function SubmissionsPage() {
                                             {l.label}
                                         </a>
                                     ))}
+                                </div>
+                            )}
+
+                            {/* the team's own evidence bench — grant the repo
+                                read, pull server-checked insight, hand over
+                                documents, poke the demo link */}
+                            {isTeam && s.team._id === user._id && !isClosed && (
+                                <div className="sub-evidence" data-testid="evidence-bench">
+                                    <span className="subs-label">your evidence bench</span>
+
+                                    {s.repositoryUrl && (
+                                        <div className="ev-row">
+                                            <span className="ev-key">repository access</span>
+                                            {grant && !grant.revokedAt ? (
+                                                <span className="ev-chip ev-chip--ok">
+                                                    ✓ authorized · {grant.authorizedVia === 'team-token'
+                                                        ? `read token ${grant.tokenFingerprint}…`
+                                                        : 'public read'}
+                                                    <button
+                                                        className="ev-mini"
+                                                        onClick={handleRevoke}
+                                                        disabled={evBusy === 'grant'}
+                                                    >
+                                                        withdraw
+                                                    </button>
+                                                </span>
+                                            ) : showGrant ? (
+                                                <form className="ev-grant" onSubmit={handleGrant}>
+                                                    <input
+                                                        type="password"
+                                                        value={tokenInput}
+                                                        onChange={(e) => setTokenInput(e.target.value)}
+                                                        placeholder="GitHub read token — only for private repos"
+                                                        autoComplete="off"
+                                                        maxLength={200}
+                                                    />
+                                                    <label className="ev-consent">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={consent}
+                                                            onChange={(e) => setConsent(e.target.checked)}
+                                                            required
+                                                        />
+                                                        I authorize HackJudge to read this repository —
+                                                        static inspection only, no code ever runs
+                                                    </label>
+                                                    <div className="ev-grant-actions">
+                                                        <button
+                                                            className="ev-action"
+                                                            disabled={evBusy === 'grant' || !consent}
+                                                        >
+                                                            {evBusy === 'grant' ? 'checking with GitHub…' : 'authorize the read'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="ev-mini"
+                                                            onClick={() => { setShowGrant(false); setTokenInput(''); setConsent(false); }}
+                                                        >
+                                                            cancel
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            ) : (
+                                                <button className="ev-action" onClick={() => setShowGrant(true)}>
+                                                    {grant?.revokedAt ? 're-grant read access' : 'grant read access'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {s.repositoryUrl && (
+                                        <div className="ev-row">
+                                            <span className="ev-key">repo read</span>
+                                            <button
+                                                className="ev-action"
+                                                onClick={handleAnalyze}
+                                                disabled={evBusy === 'insight'}
+                                            >
+                                                {evBusy === 'insight'
+                                                    ? 'reading the repo…'
+                                                    : insight ? 'refresh the read' : 'analyze repository'}
+                                            </button>
+                                            {grant?.revokedAt && (
+                                                <span className="ev-hint">access withdrawn — grant it again first</span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {insight && (
+                                        <div className="ev-facts" data-testid="insight-facts">
+                                            <p className="ev-facts-head">
+                                                <span className="ev-verified">✓ server-checked</span>
+                                                {insight.facts.fullName} · {insight.facts.visibility} ·{' '}
+                                                {insight.facts.license || 'no license stated'}
+                                            </p>
+                                            <ul className="ev-facts-list">
+                                                <li>
+                                                    {insight.facts.treeStats?.totalFiles ?? '?'} files ·{' '}
+                                                    {insight.facts.languages?.length
+                                                        ? insight.facts.languages.map(l => l.name).join(', ')
+                                                        : 'languages unknown'}
+                                                </li>
+                                                <li>
+                                                    {insight.facts.treeStats?.hasCI ? 'CI ✓' : 'no CI'} ·{' '}
+                                                    {insight.facts.treeStats?.testLikeFiles > 0
+                                                        ? `${insight.facts.treeStats.testLikeFiles} test-like files`
+                                                        : 'no test files seen'}{' '}
+                                                    · {insight.facts.treeStats?.hasManifest ? 'dependency manifest ✓' : 'no manifest'}{' '}
+                                                    · {insight.facts.treeStats?.hasDocs ? 'docs folder ✓' : 'no docs folder'}
+                                                </li>
+                                                <li>
+                                                    last push {insight.facts.pushedAt
+                                                        ? new Date(insight.facts.pushedAt).toLocaleDateString()
+                                                        : 'unknown'}{' '}
+                                                    · {insight.facts.stars}★ {insight.facts.forks}⑂
+                                                </li>
+                                            </ul>
+                                            {insight.fetchNotes?.length > 0 && (
+                                                <p className="ev-note-line">read notes: {insight.fetchNotes.join(' · ')}</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="ev-row">
+                                        <span className="ev-key">documents</span>
+                                        <label className={`ev-action ev-upload ${evBusy === 'upload' ? 'is-busy' : ''}`}>
+                                            {evBusy === 'upload' ? 'uploading…' : '+ upload a document'}
+                                            <input
+                                                type="file"
+                                                accept=".md,.markdown,.txt,.csv,.pdf,.docx,.pptx"
+                                                onChange={handleUpload}
+                                                hidden
+                                                disabled={evBusy === 'upload'}
+                                            />
+                                        </label>
+                                        <span className="ev-hint">md · txt · csv · pdf · docx · pptx — 20MB max</span>
+                                    </div>
+
+                                    {docs.length > 0 && (
+                                        <ul className="ev-docs">
+                                            {docs.map(d => (
+                                                <li key={d._id} className="ev-doc">
+                                                    <span className="ev-doc-name">{d.originalName}</span>
+                                                    <span className="ev-doc-meta">
+                                                        {Math.max(1, Math.round(d.sizeBytes / 1024))}KB ·{' '}
+                                                        {d.extractedChars} chars read
+                                                        {d.extractionNotes?.length > 0 ? ` · ${d.extractionNotes[0]}` : ''}
+                                                    </span>
+                                                    <button className="ev-mini" onClick={() => handleDownloadDoc(d)}>
+                                                        download
+                                                    </button>
+                                                    <button
+                                                        className="ev-mini ev-mini--danger"
+                                                        onClick={() => handleDeleteDoc(d)}
+                                                    >
+                                                        remove
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+
+                                    {s.demoUrl && (
+                                        <div className="ev-row">
+                                            <span className="ev-key">demo link</span>
+                                            <button
+                                                className="ev-action"
+                                                onClick={handleDemoCheck}
+                                                disabled={evBusy === 'demo'}
+                                            >
+                                                {evBusy === 'demo'
+                                                    ? 'knocking…'
+                                                    : demo ? 'check it again' : 'check the demo link'}
+                                            </button>
+                                            {demo && (
+                                                <span className={`ev-chip ${demo.reachable ? 'ev-chip--ok' : 'ev-chip--bad'}`}>
+                                                    {demo.reachable
+                                                        ? `✓ reachable · HTTP ${demo.httpStatus}${demo.title ? ` · ${demo.title}` : ''}`
+                                                        : `✗ ${demo.error || 'not reachable'}`}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {evMsg && <p className="ev-msg">{evMsg}</p>}
                                 </div>
                             )}
 

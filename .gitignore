@@ -10,3 +10,6 @@ e2e/artifacts/
 .env
 .env.local
 .env.*.local
+
+# uploaded artifacts — team documents never belong in git
+backend/uploads/

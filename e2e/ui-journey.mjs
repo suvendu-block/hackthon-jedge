@@ -319,6 +319,57 @@ try {
         await page.click('.subs-save');
         await page.waitForSelector('.sub-card', { timeout: 20000 });
         check(await page.locator('.sub-card').count() === 1, 're-submitting after withdraw works');
+
+        // ---- Phase 7: the evidence bench -----------------------------------
+        // type the repo + demo into their own fields, authorize the read,
+        // let the server pull the facts, hand over a document, poke the demo
+        await page.click('.sub-edit');
+        await page.fill('.subs-field input >> nth=2', 'https://github.com/octocat/Hello-World');
+        await page.fill('.subs-field input >> nth=3', 'https://github.com/octocat/Hello-World');
+        await page.click('.subs-save');
+        await page.waitForSelector('.sub-evidence', { timeout: 20000 });
+        const benchTxt = await page.locator('.sub-evidence').textContent();
+        check(benchTxt.includes('grant read access'), 'fresh entry offers the repository grant');
+
+        // the M7 gate in the UI: consent first, then GitHub validates the grant
+        await page.locator('.sub-evidence button', { hasText: 'grant read access' }).click();
+        await page.waitForSelector('.ev-consent', { timeout: 5000 });
+        await page.check('.ev-consent input[type=checkbox]');
+        await page.locator('.ev-grant-actions .ev-action').click();
+        await page.waitForSelector('.ev-chip--ok', { timeout: 20000 });
+        const grantTxt = await page.locator('.ev-chip--ok').textContent();
+        check(grantTxt.includes('authorized') && grantTxt.includes('public read'), `grant chip reads: "${grantTxt.trim()}"`);
+
+        // analyze — the server reads the repo through the SSRF guard
+        await page.locator('.sub-evidence .ev-row', { hasText: 'repo read' }).locator('button.ev-action').click();
+        await page.waitForFunction(
+            () => document.querySelector('[data-testid="insight-facts"]')?.textContent?.includes('octocat/Hello-World'),
+            null, { timeout: 30000 }
+        );
+        const factsTxt = await page.locator('[data-testid="insight-facts"]').textContent();
+        check(factsTxt.includes('server-checked'), 'insight wears the server-checked badge');
+        check(/\d+ files/.test(factsTxt), 'static file stats came back without running anything');
+        check(factsTxt.includes('Ruby'), 'GitHub language data shows up');
+        check(await page.locator('.ev-row', { hasText: 'repo read' }).locator('button').textContent() === 'refresh the read', 'the read can be refreshed later');
+
+        // upload a small write-up
+        await page.setInputFiles('.ev-upload input[type=file]', {
+            name: 'field-notes.md',
+            mimeType: 'text/markdown',
+            buffer: Buffer.from('# Field notes\nWe paired a hydrology model with satellite tiles and a lot of stubbornness.\n')
+        });
+        await page.waitForSelector('.ev-doc', { timeout: 20000 });
+        const docTxt = await page.locator('.ev-doc').textContent();
+        check(docTxt.includes('field-notes.md') && docTxt.includes('chars read'), `document row reads: "${docTxt.trim().slice(0, 60)}…"`);
+
+        // demo link — a recorded liveness check, not an embed
+        await page.locator('.sub-evidence .ev-row', { hasText: 'demo link' }).locator('button.ev-action').click();
+        await page.waitForFunction(
+            () => [...document.querySelectorAll('.sub-evidence .ev-chip--ok')].some(c => c.textContent.includes('reachable')),
+            null, { timeout: 30000 }
+        );
+        const demoChip = await page.locator('.sub-evidence .ev-chip--ok', { hasText: 'reachable' }).textContent();
+        check(/HTTP 200/.test(demoChip), `demo chip: "${demoChip.trim()}"`);
         await logout(page);
     }
 
@@ -352,6 +403,29 @@ try {
         // open the scorecard
         await page.locator('.sub-card', { hasText: 'ClimateLens' }).locator('.sub-score').click();
         await page.waitForSelector('.score-row', { timeout: 20000 });
+
+        // ---- Phase 7: the evidence panel -----------------------------------
+        // server-fetched facts wait here, clearly separate from the AI draft
+        await page.waitForFunction(
+            () => document.querySelector('[data-testid="evidence-panel"]')?.textContent?.includes('octocat/Hello-World'),
+            null, { timeout: 20000 }
+        );
+        const evPanel = await page.locator('[data-testid="evidence-panel"]').textContent();
+        check(evPanel.includes('✓ verified'), 'repo block wears the verified badge — the server read it');
+        check(evPanel.includes('public GitHub API'), 'the read source is named honestly');
+        check(evPanel.includes('field-notes.md'), 'the team upload is listed as its own row');
+        check(evPanel.includes('reachable · HTTP 200'), 'demo liveness is on record, judge can re-check');
+
+        // the judge records their own note, tied to a criterion
+        await page.selectOption('.ev-form select >> nth=0', 'Impact');
+        await page.fill('.ev-form-text', 'Demo link checked live — the walkthrough loads without login.');
+        await page.fill('.ev-form-src', 'demo check');
+        await page.locator('.ev-form .ev-action').click();
+        await page.waitForSelector('.ev-note', { timeout: 20000 });
+        check((await page.locator('.ev-note-crit').first().textContent()).trim() === '→ Impact', 'note links back to Impact');
+        check((await page.locator('.ev-note-type').first().textContent()).includes('verified'), 'note carries its evidence type');
+
+        // the AI draft — request it, read it, accept one number, keep judging anyway
         check((await page.locator('.score-crit-name').allTextContents()).join(',') === 'Impact,Technical', 'rubric rows render in order');
         const weightsShown = await page.locator('.score-crit-weight').allTextContents();
         check(weightsShown[0] === '60% weight' && weightsShown[1] === '40% weight', `weights shown: ${weightsShown.join(' ')}`);
@@ -361,7 +435,7 @@ try {
 
         // the AI draft — request it, read it, accept one number, keep judging anyway
         await page.click('.ai-ask');
-        await page.waitForSelector('.ai-panel .ai-scores', { timeout: 30000 });   // real LLM round-trip (+ retry if a sample comes back off-spec)
+        await page.waitForSelector('.ai-panel .ai-scores', { timeout: 50000 });   // real LLM round-trip (+ retry if a sample comes back off-spec or the upstream pool is briefly rate-limiting)
         check((await page.locator('.ai-chip').textContent()).trim() === 'AI', 'assistant panel wears the AI chip');
         const evTypes = await page.locator('.ai-ev-type').allTextContents();
         check(evTypes.length >= 1 && evTypes.every(t => /verified|claimed|inferred/.test(t)), `evidence rows carry type labels: ${evTypes.join(' / ')}`);
@@ -414,6 +488,8 @@ try {
         check((await page.locator('.score-comments textarea').isDisabled()), 'justification read-only after submit');
         check(await page.locator('.ai-panel .ai-scores').count() === 1, 'the stored AI draft rides along after reload');
         check(await page.locator('.ai-use').first().isDisabled(), 'suggestions lock once the scorecard is submitted');
+        check(await page.locator('.ev-note').count() === 1, 'the evidence note survives the reload too');
+        check((await page.locator('[data-testid="evidence-panel"]').textContent()).includes('field-notes.md'), 'so do the server-fetched artifacts');
 
         // the results door is already on the card — but it stays shut for judges
         await page.goto(`${UI}/events`);

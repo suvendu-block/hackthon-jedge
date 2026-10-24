@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getScorecard, saveDraft, submitEvaluation, requestAnalysis, getAnalysis } from './judging.api.js';
+import {
+    getScorecard, saveDraft, submitEvaluation, requestAnalysis, getAnalysis,
+    getInsight, refreshInsight, listDocuments, documentBlob,
+    getDemoCheck, checkDemo, listEvidence, addEvidence, deleteEvidence
+} from './judging.api.js';
 import './ScorecardPage.css';
 
 // evidence badge labels — icon + text, never color alone (accessibility)
@@ -33,6 +37,16 @@ export default function ScorecardPage() {
     const [aiBusy, setAiBusy] = useState(false);
     const [aiError, setAiError] = useState('');
 
+    // phase 7 — the evidence panel: server-fetched artifacts + the judge's
+    // own criterion-linked notes (BL-11)
+    const [insight, setInsight] = useState(null);
+    const [docs, setDocs] = useState([]);
+    const [demo, setDemo] = useState(null);
+    const [notes, setNotes] = useState([]);
+    const [evForm, setEvForm] = useState({ criterion: '', type: 'verified-evidence', text: '', source: '' });
+    const [evBusy, setEvBusy] = useState('');
+    const [evError, setEvError] = useState('');
+
     useEffect(() => {
         let ignore = false;   // StrictMode mounts twice — a slow stale load must
         // never wipe scores the judge has already started setting
@@ -58,6 +72,27 @@ export default function ScorecardPage() {
         getAnalysis(submissionId)
             .then((d) => { if (!ignore) setAi(d); })
             .catch(() => { /* none yet — the judge can ask for one */ });
+        return () => { ignore = true; };
+    }, [submissionId]);
+
+    // evidence artifacts — whatever the server has already fetched for this
+    // submission, plus this judge's own notes. anything missing just stays
+    // unbuilt on the panel; none of it blocks scoring.
+    useEffect(() => {
+        let ignore = false;
+        (async () => {
+            const [i, d, dc, n] = await Promise.all([
+                getInsight(submissionId).catch(() => null),
+                listDocuments(submissionId).catch(() => null),
+                getDemoCheck(submissionId).catch(() => null),
+                listEvidence(submissionId).catch(() => null)
+            ]);
+            if (ignore) return;
+            setInsight(i?.insight || null);
+            setDocs(d?.documents || []);
+            setDemo(dc?.check || null);
+            setNotes(n?.evidence || []);
+        })();
         return () => { ignore = true; };
     }, [submissionId]);
 
@@ -104,6 +139,76 @@ export default function ScorecardPage() {
             setAiError(err.response?.data?.error?.message || 'AI analysis unavailable');
         } finally {
             setAiBusy(false);
+        }
+    };
+
+    // ---- evidence panel actions -------------------------------------------
+
+    const handleRefreshInsight = async () => {
+        setEvBusy('insight');
+        setEvError('');
+        try {
+            setInsight((await refreshInsight(submissionId)).insight);
+        } catch (err) {
+            setEvError(err.response?.data?.error?.message || 'Could not read the repository');
+        } finally {
+            setEvBusy('');
+        }
+    };
+
+    const handleRecheckDemo = async () => {
+        setEvBusy('demo');
+        setEvError('');
+        try {
+            setDemo((await checkDemo(submissionId)).check);
+        } catch (err) {
+            setEvError(err.response?.data?.error?.message || 'Demo check failed');
+        } finally {
+            setEvBusy('');
+        }
+    };
+
+    const handleDownloadDoc = async (doc) => {
+        try {
+            const blob = await documentBlob(submissionId, doc._id);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = doc.originalName;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            setEvError('Download failed');
+        }
+    };
+
+    const handleAddEvidence = async (e) => {
+        e.preventDefault();
+        if (evForm.text.trim().length < 3) return;
+        setEvBusy('note');
+        setEvError('');
+        try {
+            const created = await addEvidence(submissionId, {
+                type: evForm.type,
+                text: evForm.text.trim(),
+                source: evForm.source.trim(),
+                ...(evForm.criterion ? { criterion: evForm.criterion } : {})
+            });
+            setNotes([created.evidence, ...notes]);
+            setEvForm({ ...evForm, text: '', source: '' });
+        } catch (err) {
+            setEvError(err.response?.data?.error?.message || 'Could not save the note');
+        } finally {
+            setEvBusy('');
+        }
+    };
+
+    const handleDeleteNote = async (noteId) => {
+        try {
+            await deleteEvidence(submissionId, noteId);
+            setNotes(notes.filter(n => n._id !== noteId));
+        } catch (err) {
+            setEvError(err.response?.data?.error?.message || 'Could not remove the note');
         }
     };
 
@@ -208,6 +313,192 @@ export default function ScorecardPage() {
                     );
                 })}
             </ul>
+
+            {/* ---------- evidence — what the server checked, and what the
+                 judge checked themselves (never confused with AI drafts) ---------- */}
+            <div className="ev-panel" data-testid="evidence-panel">
+                <div className="ev-panel-head">
+                    <span className="ev-panel-label">evidence</span>
+                    <span className="ev-panel-note">checked by this server, checked by you — drafts below stay separate</span>
+                </div>
+
+                {/* repository insight — fetched server-side through the SSRF guard */}
+                {insight ? (
+                    <div className="ev-block ev-block--verified">
+                        <p className="ev-block-head">
+                            <span className="ev-badge ev-badge--verified">✓ verified</span>
+                            <span>
+                                repository <strong>{insight.facts.fullName}</strong> — read via{' '}
+                                {insight.fetchedVia === 'team-token'
+                                    ? 'the team-authorized token'
+                                    : insight.fetchedVia === 'server-token'
+                                        ? 'the server token'
+                                        : 'the public GitHub API'}
+                            </span>
+                        </p>
+                        <ul className="ev-block-list">
+                            <li>
+                                {insight.facts.treeStats?.totalFiles ?? '?'} files ·{' '}
+                                {insight.facts.languages?.length
+                                    ? insight.facts.languages.map(l => l.name).join(', ')
+                                    : 'languages unknown'} · {insight.facts.license || 'no license'}
+                            </li>
+                            <li>
+                                {insight.facts.treeStats?.hasCI ? 'CI ✓' : 'no CI'} ·{' '}
+                                {insight.facts.treeStats?.testLikeFiles > 0
+                                    ? `${insight.facts.treeStats.testLikeFiles} test-like files`
+                                    : 'no test files seen'}{' '}
+                                · {insight.facts.treeStats?.hasDockerfile ? 'container ✓' : 'no container file'} ·
+                                last push {insight.facts.pushedAt
+                                    ? new Date(insight.facts.pushedAt).toLocaleDateString()
+                                    : 'unknown'}
+                            </li>
+                        </ul>
+                        {insight.fetchNotes?.length > 0 && (
+                            <p className="ev-block-note">read notes: {insight.fetchNotes.join(' · ')}</p>
+                        )}
+                    </div>
+                ) : (
+                    <div className="ev-block ev-block--muted">
+                        <span className="ev-badge">no repository read yet</span>
+                        {submission.repositoryUrl && (
+                            <button
+                                className="ev-action"
+                                onClick={handleRefreshInsight}
+                                disabled={evBusy === 'insight'}
+                            >
+                                {evBusy === 'insight' ? 'reading…' : 'read the repository'}
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* team documents — uploads, never executed */}
+                {docs.length > 0 && (
+                    <div className="ev-block ev-block--docs">
+                        <p className="ev-block-head">
+                            <span className="ev-badge ev-badge--team">◆ team upload</span>
+                            <span>{docs.length} document{docs.length > 1 ? 's' : ''} on file</span>
+                        </p>
+                        <ul className="ev-docs">
+                            {docs.map(d => (
+                                <li key={d._id} className="ev-doc">
+                                    <span className="ev-doc-name">{d.originalName}</span>
+                                    <span className="ev-doc-meta">
+                                        {Math.max(1, Math.round(d.sizeBytes / 1024))}KB · {d.extractedChars} chars read
+                                    </span>
+                                    <button className="ev-mini" onClick={() => handleDownloadDoc(d)}>
+                                        download
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* demo link — server-side liveness the judge can re-run */}
+                {submission.demoUrl && (
+                    <div className="ev-block ev-block--demo">
+                        <p className="ev-block-head">
+                            <span className={`ev-badge ${demo ? (demo.reachable ? 'ev-badge--verified' : 'ev-badge--bad') : ''}`}>
+                                {demo ? (demo.reachable ? '✓ verified' : '✗ failed') : 'demo'}
+                            </span>
+                            <a
+                                href={submission.demoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ev-demo-link"
+                            >
+                                {submission.demoUrl}
+                            </a>
+                            <button
+                                className="ev-action ev-action--small"
+                                onClick={handleRecheckDemo}
+                                disabled={evBusy === 'demo'}
+                            >
+                                {evBusy === 'demo' ? 'checking…' : demo ? 're-check' : 'check link'}
+                            </button>
+                        </p>
+                        {demo && (
+                            <p className="ev-block-note">
+                                {demo.reachable
+                                    ? `reachable · HTTP ${demo.httpStatus}${demo.title ? ` · "${demo.title}"` : ''}`
+                                    : (demo.error || 'not reachable')}
+                                {' · '}checked {new Date(demo.createdAt).toLocaleTimeString()}
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                {/* the judge's own notes — human work, solid borders, criterion-linked */}
+                <div className="ev-notes">
+                    <span className="score-label">your evidence notes</span>
+                    <ul className="ev-note-list">
+                        {notes.length === 0 && (
+                            <li className="ev-note-empty">
+                                nothing recorded yet — link what you checked to a criterion while you score
+                            </li>
+                        )}
+                        {notes.map(n => (
+                            <li key={n._id} className="ev-note">
+                                <span className="ev-note-type">{EV_LABEL[n.type] || n.type}</span>
+                                {n.criterion && <span className="ev-note-crit">→ {n.criterion}</span>}
+                                <span className="ev-note-text">
+                                    {n.text}
+                                    {n.source && <em className="ev-note-src"> — {n.source}</em>}
+                                </span>
+                                <button
+                                    className="ev-mini ev-mini--danger"
+                                    onClick={() => handleDeleteNote(n._id)}
+                                    aria-label="remove note"
+                                >
+                                    ×
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+
+                    <form className="ev-form" onSubmit={handleAddEvidence}>
+                        <select
+                            value={evForm.criterion}
+                            onChange={(e) => setEvForm({ ...evForm, criterion: e.target.value })}
+                            aria-label="link to criterion"
+                        >
+                            <option value="">general — no criterion</option>
+                            {rubric.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                        </select>
+                        <select
+                            value={evForm.type}
+                            onChange={(e) => setEvForm({ ...evForm, type: e.target.value })}
+                            aria-label="evidence type"
+                        >
+                            <option value="verified-evidence">✓ verified</option>
+                            <option value="team-claim">◆ claim</option>
+                        </select>
+                        <input
+                            className="ev-form-text"
+                            value={evForm.text}
+                            onChange={(e) => setEvForm({ ...evForm, text: e.target.value })}
+                            placeholder="what you checked, and what it showed"
+                            maxLength={1000}
+                        />
+                        <input
+                            className="ev-form-src"
+                            value={evForm.source}
+                            onChange={(e) => setEvForm({ ...evForm, source: e.target.value })}
+                            placeholder="source — optional"
+                            maxLength={300}
+                        />
+                        <button
+                            className="ev-action"
+                            disabled={evBusy === 'note' || evForm.text.trim().length < 3}
+                        >
+                            {evBusy === 'note' ? 'saving…' : '+ record'}
+                        </button>
+                    </form>
+                    {evError && <p role="alert" className="score-error">{evError}</p>}
+                </div>
+            </div>
 
             {/* ---------- AI draft — optional, the judge decides alone ---------- */}
             <div className="ai-panel">

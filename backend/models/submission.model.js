@@ -38,6 +38,20 @@ const submissionSchema = new mongoose.Schema({
         label: { type: String, maxlength: 60, trim: true },
         url: { type: String, maxlength: 500, trim: true }
     }],
+    // typed evidence fields (Phase 7) — the repository we may statically
+    // inspect, and the demo judges will click. validated harder than links.
+    repositoryUrl: {
+        type: String,
+        maxlength: 300,
+        trim: true,
+        default: ''
+    },
+    demoUrl: {
+        type: String,
+        maxlength: 500,
+        trim: true,
+        default: ''
+    },
     // one submission per team per event — enforced by the unique index below
 }, { timestamps: true });
 

@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
 import AIAnalysis from '../models/aiAnalysis.model.js';
 import Submission from '../models/submission.model.js';
+import RepositoryInsight from '../models/repositoryInsight.model.js';
+import SubmissionDocument from '../models/submissionDocument.model.js';
+import DemoCheck from '../models/demoCheck.model.js';
 import AppError from '../utils/AppError.js';
 import catchAsync from '../utils/catchAsync.js';
 import { analyzeSubmission } from '../services/aiEvaluationService.js';
@@ -38,15 +41,34 @@ const ensureJudgingOpen = (sub) => {
 };
 
 
+// Phase 7 artifacts the model gets to reason over: whatever the server has
+// already fetched for this submission. stored reads only — an AI request
+// never triggers live network calls of its own.
+const loadArtifacts = async (submissionId) => {
+    const [insight, documents, demoCheck] = await Promise.all([
+        RepositoryInsight.findOne({ submission: submissionId }).sort({ createdAt: -1 }),
+        SubmissionDocument.find({ submission: submissionId }).sort({ createdAt: -1 }),
+        DemoCheck.findOne({ submission: submissionId }).sort({ createdAt: -1 })
+    ]);
+    return { insight, documents, demoCheck };
+};
+
+
 /// POST /api/submissions/:id/ai-analysis — generate + store a fresh report
 export const requestAnalysis = catchAsync(async (req, res) => {
     const sub = await loadSubmission(req.params.id);
     ensureAssignedJudge(sub, req.user);
     ensureJudgingOpen(sub);
 
+    const artifacts = await loadArtifacts(sub._id);
+
     // the service fails closed: no key → 503, provider hiccups → 503,
     // malformed output → 503. an error here stores exactly nothing.
-    const { report, model } = await analyzeSubmission({ event: sub.event, submission: sub });
+    const { report, model } = await analyzeSubmission({
+        event: sub.event,
+        submission: sub,
+        artifacts
+    });
 
     const doc = await AIAnalysis.create({ submission: sub._id, model, ...report });
     res.status(201).json(doc);
