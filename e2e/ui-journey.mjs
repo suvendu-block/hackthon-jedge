@@ -327,9 +327,14 @@ try {
         await page.fill('.subs-field input >> nth=2', 'https://github.com/octocat/Hello-World');
         await page.fill('.subs-field input >> nth=3', 'https://github.com/octocat/Hello-World');
         await page.click('.subs-save');
-        await page.waitForSelector('.sub-evidence', { timeout: 20000 });
+        // the bench mounts before the save round-trip lands — wait for the
+        // grant row, which only exists once repositoryUrl is actually stored
+        await page.waitForFunction(
+            () => document.querySelector('.sub-evidence')?.textContent?.includes('grant read access'),
+            null, { timeout: 20000 }
+        );
         const benchTxt = await page.locator('.sub-evidence').textContent();
-        check(benchTxt.includes('grant read access'), 'fresh entry offers the repository grant');
+        check(benchTxt.includes('analyze repository'), 'fresh entry offers the repository grant + repo read');
 
         // the M7 gate in the UI: consent first, then GitHub validates the grant
         await page.locator('.sub-evidence button', { hasText: 'grant read access' }).click();
@@ -349,7 +354,10 @@ try {
         const factsTxt = await page.locator('[data-testid="insight-facts"]').textContent();
         check(factsTxt.includes('server-checked'), 'insight wears the server-checked badge');
         check(/\d+ files/.test(factsTxt), 'static file stats came back without running anything');
-        check(factsTxt.includes('Ruby'), 'GitHub language data shows up');
+        // this fixture is a README-only repo: no languages to report — the
+        // honest "unknown" plus the tree flags are the proof of the read
+        check(factsTxt.includes('languages unknown'), 'language data reads unknown instead of guessing');
+        check(factsTxt.includes('no CI') && factsTxt.includes('no test files seen'), 'static tree flags render (no CI, no tests in this fixture)');
         check(await page.locator('.ev-row', { hasText: 'repo read' }).locator('button').textContent() === 'refresh the read', 'the read can be refreshed later');
 
         // upload a small write-up
@@ -405,9 +413,13 @@ try {
         await page.waitForSelector('.score-row', { timeout: 20000 });
 
         // ---- Phase 7: the evidence panel -----------------------------------
-        // server-fetched facts wait here, clearly separate from the AI draft
+        // server-fetched facts wait here, clearly separate from the AI draft.
+        // all four artifact GETs run in parallel — wait for the LAST one
         await page.waitForFunction(
-            () => document.querySelector('[data-testid="evidence-panel"]')?.textContent?.includes('octocat/Hello-World'),
+            () => {
+                const t = document.querySelector('[data-testid="evidence-panel"]')?.textContent || '';
+                return t.includes('octocat/Hello-World') && t.includes('reachable · HTTP 200');
+            },
             null, { timeout: 20000 }
         );
         const evPanel = await page.locator('[data-testid="evidence-panel"]').textContent();
@@ -486,10 +498,17 @@ try {
         await page.waitForSelector('.score-final', { timeout: 20000 });
         check((await page.locator('.score-total-num').textContent()) === '82', 'reload keeps total at 82');
         check((await page.locator('.score-comments textarea').isDisabled()), 'justification read-only after submit');
+        // the AI draft + evidence ride along — wait for the data, not just the shell
+        await page.waitForSelector('.ai-panel .ai-scores', { timeout: 20000 });
         check(await page.locator('.ai-panel .ai-scores').count() === 1, 'the stored AI draft rides along after reload');
         check(await page.locator('.ai-use').first().isDisabled(), 'suggestions lock once the scorecard is submitted');
+        await page.waitForSelector('.ev-note', { timeout: 20000 });
         check(await page.locator('.ev-note').count() === 1, 'the evidence note survives the reload too');
-        check((await page.locator('[data-testid="evidence-panel"]').textContent()).includes('field-notes.md'), 'so do the server-fetched artifacts');
+        await page.waitForFunction(
+            () => document.querySelector('[data-testid="evidence-panel"]')?.textContent?.includes('field-notes.md'),
+            null, { timeout: 20000 }
+        );
+        check(true, 'so do the server-fetched artifacts');
 
         // the results door is already on the card — but it stays shut for judges
         await page.goto(`${UI}/events`);

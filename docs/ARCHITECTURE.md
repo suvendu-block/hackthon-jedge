@@ -105,9 +105,11 @@ HTTP request
    (`schema/auth.schema.js` + `middleware/validate.middleware.js`). Strict
    schemas reject unknown fields → 422 `VALIDATION_ERROR`. Controllers keep
    manual checks only as a safety net.
-4. ✅ **`services/` layer** — `scoringService.js` (Phase 4) and
-   `aiEvaluationService.js` (Phase 6): pure functions where possible,
-   unit-testable without DB; the AI service takes injectable transport/env.
+4. ✅ **`services/` layer** — `scoringService.js` (Phase 4),
+   `aiEvaluationService.js` (Phase 6), and Phase 7's
+   `githubService` / `documentService` / `demoService` built on
+   `utils/safeFetch.js`: pure functions where possible, unit-testable with
+   injected lookup/fetch; the AI service takes injectable transport/env.
 5. **Config module** — `config/index.js` reads/validates env once at boot
    (fails fast if `JWT_SECRET` missing instead of crashing at first login).
 6. **Test layout** — `tests/unit/`, `tests/integration/`, supertest against an
@@ -130,6 +132,36 @@ off-spec — reasons logged server-side, bad reports never stored);
 journey); unset → 503 `AI_DISABLED` (fail closed). No AI key names,
 provider URLs, or model IDs appear in the client bundle (M6 gate,
 verified by dist grep).
+
+**Phase 7 evidence request paths (as built, 2026-10-27):**
+
+```
+POST /api/submissions/:id/repo/grant      team only → githubService.validateRepoAccess
+  → token (optional): validated → AES-256-GCM vault → fingerprint shown, raw never stored
+DELETE …/repo/grant                      team only → ciphertext wiped, revokedAt set
+POST …/repo/insight      (20/h/user)      team or assigned judge → safeFetch-guarded
+  → githubService.fetchInsight: meta + languages + tree + README (each degrades to a note)
+  → RepositoryInsight.create             submitted code never checked out, never run
+
+POST …/documents         (30/h/user)      team only → multer (20MB, md/txt/csv/pdf/docx/pptx)
+  → sha256 dedupe → bytes to backend/uploads/ → documentService.extract → row
+GET  …/documents/:docId/download          attachment + nosniff (never rendered in-app)
+
+POST …/demo/check        (20/h/user)      team or assigned judge → demoService: https-only,
+  allowlisted hosts, DNS + redirect re-validation → reachable/title/status recorded
+  (a dead demo is a recorded result, never a 5xx)
+
+POST …/evidence                           assigned judge → rubric-criterion normalization
+GET  …/evidence                           assigned judge (own) | organizer (all) | team ✗
+```
+
+Every outbound call in the phase funnels through
+`utils/safeFetch.js`: https + port 443 + host allowlist + public-IP DNS
+check + per-hop redirect revalidation + byte caps + abort timeout.
+`isPrivateAddress` also guards the `demoUrl`/link schemas at request time
+(SECURITY §6). AI analysis now receives the stored artifacts as
+`<untrusted_repository>/<untrusted_documents>/<untrusted_demo>` prompt
+blocks — stored reads only; an AI request never triggers a live fetch.
 
 ### Frontend target — the "view" overhaul
 

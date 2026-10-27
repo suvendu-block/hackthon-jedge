@@ -77,7 +77,7 @@ Declared ADR-0013 — rewrite, not patch. Details:
       work is lost), submit locks scoring
 - [x] Scorecard UI with 0–10 sliders, running total, contribution chips
 
-## Phase 5 — Leaderboard and Export
+## Phase 5 — Leaderboard and Export ✅ complete (2026-10-22)
 
 - [x] Weighted aggregation and ranking with tie-breakers (average → judged
       count → name → id; unjudged rows last with null rank)
@@ -85,7 +85,7 @@ Declared ADR-0013 — rewrite, not patch. Details:
       teams until the organizer releases; preview for the organizer)
 - [x] Leaderboard page; CSV export (BOM + CRLF, one column per judge)
 
-## Phase 6 — AI Evaluation Assistant
+## Phase 6 — AI Evaluation Assistant ✅ complete (2026-10-23)
 
 - [x] Server-side `aiEvaluationService` (prompts embed rubric + AI rules)
 - [x] Evidence typing: verified / claimed / inferred
@@ -93,12 +93,22 @@ Declared ADR-0013 — rewrite, not patch. Details:
 - [x] Rate limiting, timeout, schema validation, 503 failure policy
 - [x] Report UI with evidence badges and accept-suggestion flow
 
-## Phase 7 — Evidence Depth (GitHub & Documents)
+## Phase 7 — Evidence Depth (GitHub & Documents) ✅ complete (2026-10-27)
 
-- [ ] Authorized GitHub repository analysis (team grants access)
-- [ ] SSRF allowlist, redirect validation, **no code execution**
-- [ ] Presentation/document upload and analysis
-- [ ] Demo review and evidence linking
+- [x] Typed evidence fields (`repositoryUrl` github-only, `demoUrl` https-only,
+      private-network literals rejected at the schema)
+- [x] Team authorization record — grant/revoke, token validated against GitHub
+      before storage, AES-256-GCM vault, fingerprint-only display
+- [x] SSRF allowlist + per-hop redirect validation, byte caps, timeouts —
+      **submitted code is never executed** (ADR-0012, SECURITY §6)
+- [x] Static GitHub inspection: metadata, languages, file-tree stats, README
+      excerpt (per-piece degradation to honest notes)
+- [x] Document upload (md/txt/csv/pdf/docx/pptx, 20MB) — own zip reader for
+      docx/pptx, PDFs stored with an honest "not extracted" note
+- [x] Demo liveness checks (server-side, recorded) + judge evidence notes
+      linked to rubric criteria (BL-11)
+- [x] AI artifacts: server-fetched facts ride into the prompt as
+      `<untrusted_repository>/<untrusted_documents>/<untrusted_demo>` blocks
 
 ## Phase 8 — Intelligence and Fairness
 
@@ -124,9 +134,9 @@ Declared ADR-0013 — rewrite, not patch. Details:
 | M2 | Events with custom rubrics | Σ weight validation enforced | ✅ 2026-10-22 |
 | M3 | Submissions flowing | Teams can submit, judges can read | ✅ 2026-10-22 |
 | M4 | Judging live | Scorecards + scoring service tested | ✅ 2026-10-22 |
-| M5 | Results visible | Leaderboard matches hand-computed totals | ✅ |
-| M6 | AI assist enabled | Reports typed, uncertain, overridable | ⬜ |
-| M7 | Deep evidence | GitHub analysis with authorization | ⬜ |
+| M5 | Results visible | Leaderboard matches hand-computed totals | ✅ 2026-10-22 |
+| M6 | AI assist enabled | Reports typed, uncertain, overridable | ✅ 2026-10-23 |
+| M7 | Deep evidence | GitHub analysis with authorization, no code execution | ✅ 2026-10-27 |
 | M8 | Production | Deployed, monitored, security checklist done | ⬜ |
 
 See [MILESTONES.md](MILESTONES.md) for the narrative version.

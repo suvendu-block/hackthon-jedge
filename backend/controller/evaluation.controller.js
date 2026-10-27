@@ -61,7 +61,14 @@ export const getMyEvaluation = catchAsync(async (req, res) => {
     res.json({
         evaluation: ev,
         rubric: sub.event.rubric,     // criteria the scorecard renders
-        submission: { _id: sub._id, projectName: sub.projectName, tagline: sub.tagline }
+        // typed evidence fields ride along — the Phase 7 panel needs them
+        submission: {
+            _id: sub._id,
+            projectName: sub.projectName,
+            tagline: sub.tagline,
+            repositoryUrl: sub.repositoryUrl || '',
+            demoUrl: sub.demoUrl || ''
+        }
     });
 });
 

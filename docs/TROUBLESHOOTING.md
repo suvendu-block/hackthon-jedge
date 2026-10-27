@@ -117,6 +117,18 @@ before the rename were corrected 2026-10-20).
 3. Atlas: IP allowlisted? DB user/password correct in the URI?
 4. M0 clusters pause after inactivity — resume in the Atlas UI.
 5. SRV issues → Incident #2 above.
+6. **TLS handshake to `*.mongodb.net` times out while other HTTPS works**
+   (seen 2026-10-27): TCP connects but `tls.connect` to every shard host
+   stalls — that's Atlas *dropping* a non-allowlisted IP at the TLS layer.
+   The usual cause: the machine's **public IP changed** (new network/weekend
+   reconnect). Check `https://api.ipify.org`, then add that IP (or
+   `0.0.0.0/0` for dev clusters) under Atlas → Network Access. The server
+   looks fine for ~30s first — the HTTP listener binds before mongoose
+   connects, so `/api/health` may answer once and then the process exits.
+   **Local workaround for verification:** point the backend at any local
+   MongoDB via shell env (dotenv won't override pre-set vars):
+   `MONGO_URL=mongodb://127.0.0.1:27017/hackjudge npm run dev` — e.g. with
+   `mongodb-memory-server` if no mongod is installed.
 
 ### Env variables are `undefined`
 - `import dotenv from 'dotenv'; dotenv.config();` must run **before** first
@@ -194,6 +206,24 @@ Judge not in event's `judgeIds`, wrong event, or stale client cache.
   the model's host. Check
   `GET /api/v1/models/<id>/endpoints` for `provider_name` entries your
   account permits.
+- **OpenRouter 429 "temporarily rate-limited upstream"
+  (`provider_error_code: limit_requests | insufficient_quota`):** your key
+  is fine — the model's *shared free pool* throttles in windows of minutes.
+  Confirm with `GET https://openrouter.ai/api/v1/key` (`is_free_tier`,
+  `limit: null`, small `usage` = healthy account). The transport already
+  retries 429 once after 6s; for tests/journeys, probe with a one-shot
+  ping script and run inside an open window. Adding your own provider key
+  (BYOK) removes the shared-pool dependency.
+- **GitHub calls fail with 403/429 `GITHUB_RATE_LIMITED`:** unauthenticated
+  `api.github.com` is **60 requests/hour per IP** — one evidence.test.js
+  run spends ~7, one UI journey ~5. Set `GITHUB_TOKEN` (a fine-grained
+  read token) in `backend/.env` to move to the 5000/h authenticated budget;
+  grant/insight use it automatically.
+- **Evidence fetch shows "languages unknown" / fetch notes like
+  "README unavailable":** per-piece degradation, not an error — the repo may
+  simply have no detectable languages (a README-only repo really returns
+  `{}` from `/languages`) or one endpoint was rate-limited. The notes are
+  shown to judges on purpose.
 - **Suggestions don't populate the scorecard:** by design — judges must
   click "accept" per criterion (FR-18).
 - **Repo content containing "ignore previous instructions":** must stay

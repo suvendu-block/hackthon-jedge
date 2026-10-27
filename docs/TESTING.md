@@ -50,6 +50,7 @@ Run everything in CI on each pull request (BL-22).
 | `evaluations.test.js` | draft save; submit transition; one eval per judge per submission (409); auto-computed total present; score range enforced |
 | `leaderboard.test.js` | ranking order + hand-checked averages; draft evaluations excluded; standings sealed for teams **and** judges pre-release; organizer preview; release rules (owner-only, closed-only, once-only); status locked after release; CSV shape + gating |
 | `ai.test.js` (API) + `ai.unit.test.js` (service) | assigned judge only — team gets route-level 403, unassigned judge 403 `NOT_ASSIGNED`; typed report shape (evidence types, rationale, confidence 0–1); GET returns latest; rate limit 429 `RATE_LIMITED`; `EVENT_CLOSED` after close; unit: ten rules in prompt, untrusted-block injection containment, strict schema rejects malformed output (nothing stored), no key → fail-closed 503, mock is deterministic |
+| `evidence.test.js` (API) + `evidence.unit.test.js` (service) | SSRF gates at the schema (metadata IP, private-host literals, non-github repo → 422); grant records authorization leak-free; bogus GitHub token → 400 `TOKEN_REJECTED` before storage; stranger 404/403; insight fetch on octocat/Hello-World; revoke → 409 `GRANT_REVOKED` → re-grant; upload md → text extracted, sha256 dedupe, download bytes exact + `nosniff`, 413 size / 422 type caps, judge-upload 403; demo check reachable+title, `NO_DEMO_URL`; evidence CRUD with criterion normalization (`impact`→`Impact`), `UNKNOWN_CRITERION`, role gating (assigned judge writes, organizer reads all, team 403); live AI with artifacts; unit: SSRF address matrix, redirect hops, byte caps, timeouts with injected lookup/fetch, token vault roundtrip/tamper, crafted-zip docx/pptx extraction, downloadName safety, README-injection containment in artifact blocks |
 
 ## 5. AI Evaluation Tests
 
@@ -75,14 +76,28 @@ Run everything in CI on each pull request (BL-22).
       final numbers)
 - [x] No `LLM_API_KEY` present in any client build artifact
       (dist bundle grep gate: no key names, provider URLs, or model IDs)
+- [x] Server-fetched artifacts arrive in their own untrusted blocks and the
+      model cannot be steered by them (unit: a README saying "IGNORE ALL
+      RULES" stays inside `<untrusted_repository>`, never reaches the system
+      prompt); mock rows mark github/demo facts `verified-evidence`,
+      uploads `team-claim`
+- [x] An AI request never triggers a live network fetch — artifacts come
+      from stored reads only (`loadArtifacts` reads RepositoryInsight /
+      SubmissionDocument / DemoCheck)
 
 ## 6. Security Testing
 
 - [ ] AuthZ matrix: every route × every role (allow/deny table from
       [SECURITY.md](SECURITY.md))
-- [ ] SSRF suite: private IPs, link-local, metadata endpoints, redirect
+- [x] SSRF suite: private IPs, link-local, metadata endpoints, redirect
       chains, oversized responses
-- [ ] Rate limits trigger on `/auth/*` and AI endpoints
+      (`evidence.unit.test.js`: address matrix incl. IPv4-mapped IPv6 +
+      CGNAT, allowlist/port/protocol refusals, DNS-to-private refusal,
+      redirect-off-allowlist refusal, redirect-to-private refusal, redirect
+      loop cap, byte-cap `RESPONSE_TOO_LARGE`, abort timeout — all with
+      injected lookup/fetch, no network in CI)
+- [x] Rate limits trigger on AI endpoints (10/h per judge, asserted);
+      repo-insight/demo (20/h) and uploads (30/h) metered the same way
 - [ ] Oversized JSON body rejected
 - [ ] Stack traces absent from production error responses
 - [ ] `npm audit` gate on CI (fail on high/critical)
@@ -125,20 +140,24 @@ Run everything in CI on each pull request (BL-22).
 
 **Never hit a live LLM API in CI** — use recorded fixtures or a mock provider.
 
-### Current reality (2026-10-20)
+### Current reality (2026-10-27)
 
-- **Runner in use:** Node's built-in `node --test` (ADR-0014) — no framework
-  installed yet. Script: `node --test "tests/*.test.js"` (**must be quoted**;
-  bare directory args crash on Node 24).
-- **Live suite:** `backend/tests/auth.test.js` — **12/12 passing** against a
-  running server + real Atlas DB (register ×4, login ×3, `/me` ×3,
-  logout ×2), including assertions that `password`/`passwordHash` never
-  appear in responses.
-- **Known gap:** tests require `npm run dev` running and leave
-  `test+<timestamp>@example.com` users in Atlas — fixed when Phase 0.5 adds
-  supertest + an exported `app` + teardown.
-- Coverage targets above are aspirational; scoring unit tests start in
-  Phase 4.
+- **Runner in use:** Node's built-in `node --test` (ADR-0014). Script:
+  `node --test "tests/*.test.js"` (**must be quoted**; bare directory args
+  crash on Node 24).
+- **Live suites** (server on :3000 + real DB): `auth` 13, `event`,
+  `submission`, `evaluation`, `leaderboard`, `ai` (6), `evidence` (22 —
+  includes one live AI call and GitHub's public API).
+- **Unit suites:** `scoring.unit` (12), `ai.unit` (18), `scoring`… plus
+  `evidence.unit` (37 — safeFetch, token vault, zip extraction, artifact
+  prompts; zero network).
+- **UI journey:** `e2e/ui-journey.mjs` — **126 browser checks** across all
+  four roles, incl. the Phase 7 evidence bench + evidence panel.
+- **External budgets when running everything:** GitHub's unauthenticated
+  API is 60/h per IP (set `GITHUB_TOKEN` to lift) and the live LLM pools
+  throttle in windows — probe first, run the AI tests inside a window.
+- **Known gap:** live tests leave `test+…` users/events behind — teardown
+  when supertest + exported `app` lands.
 
 ## 10. Definition of Done for a Feature
 
