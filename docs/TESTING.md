@@ -50,6 +50,7 @@ Run everything in CI on each pull request (BL-22).
 | `evaluations.test.js` | draft save; submit transition; one eval per judge per submission (409); auto-computed total present; score range enforced |
 | `leaderboard.test.js` | ranking order + hand-checked averages; draft evaluations excluded; standings sealed for teams **and** judges pre-release; organizer preview; release rules (owner-only, closed-only, once-only); status locked after release; CSV shape + gating |
 | `ai.test.js` (API) + `ai.unit.test.js` (service) | assigned judge only — team gets route-level 403, unassigned judge 403 `NOT_ASSIGNED`; typed report shape (evidence types, rationale, confidence 0–1); GET returns latest; rate limit 429 `RATE_LIMITED`; `EVENT_CLOSED` after close; unit: ten rules in prompt, untrusted-block injection containment, strict schema rejects malformed output (nothing stored), no key → fail-closed 503, mock is deterministic |
+| `qa.test.js` (API) + `qa.unit.test.js` (service) | owning team + assigned judge run, organizer reads only (403 `FORBIDDEN` on POST), stranger team/unassigned judge 404; full card shape on a **live** provider call — five dimensions × 1–10 whole points, typed evidence, capacity + confidence, `inputs{repository, demo}` recorded; 404 `NO_QA_REPORT` before first run; judge re-run stores a fresh card; 409 `EVENT_CLOSED` on runs after close while reads keep working; unit: prompt containment (README injection stays in `<untrusted_repository>`), coverage/duplicate/unknown-dimension/extra-field/range/empty-limitations rejections → `AI_BAD_OUTPUT`, mock determinism + evidence-derived errors, no key → `AI_DISABLED`, malformed output retried once then dropped |
 | `evidence.test.js` (API) + `evidence.unit.test.js` (service) | SSRF gates at the schema (metadata IP, private-host literals, non-github repo → 422); grant records authorization leak-free; bogus GitHub token → 400 `TOKEN_REJECTED` before storage; stranger 404/403; insight fetch on octocat/Hello-World; revoke → 409 `GRANT_REVOKED` → re-grant; upload md → text extracted, sha256 dedupe, download bytes exact + `nosniff`, 413 size / 422 type caps, judge-upload 403; demo check reachable+title, `NO_DEMO_URL`; evidence CRUD with criterion normalization (`impact`→`Impact`), `UNKNOWN_CRITERION`, role gating (assigned judge writes, organizer reads all, team 403); live AI with artifacts; unit: SSRF address matrix, redirect hops, byte caps, timeouts with injected lookup/fetch, token vault roundtrip/tamper, crafted-zip docx/pptx extraction, downloadName safety, README-injection containment in artifact blocks |
 
 ## 5. AI Evaluation Tests
@@ -120,7 +121,8 @@ Run everything in CI on each pull request (BL-22).
       before anything is sent; duplicate email surfaces the server message
       as `role=alert` with **no** session issued; already-logged-in state;
       both judge and organizer accounts created through the form pass the
-      route guard (`e2e/register-journey.mjs` — 23 checks)
+      route guard — and each lands on a **role-aware** dashboard
+      (`e2e/register-journey.mjs` — 27 checks)
 - [ ] Keyboard-only navigation through the scoring flow; ARIA labels present
 
 ## 8. Test Data and Fixtures
@@ -152,16 +154,21 @@ Run everything in CI on each pull request (BL-22).
   crash on Node 24).
 - **Live suites** (server on :3000 + real DB): `auth` 13, `event`,
   `submission`, `evaluation`, `leaderboard`, `ai` (6), `evidence` (22 —
-  includes one live AI call and GitHub's public API).
+  includes one live AI call and GitHub's public API), `qa` (9 — two live
+  provider calls). **Total: 206/206 green (2026-10-27).**
 - **Unit suites:** `scoring.unit` (12), `ai.unit` (18), `scoring`… plus
   `evidence.unit` (37 — safeFetch, token vault, zip extraction, artifact
-  prompts; zero network).
-- **UI journey:** `e2e/ui-journey.mjs` — **127 browser checks** across all
-  four roles, incl. the Phase 7 evidence bench + evidence panel.
-- **Register journey:** `e2e/register-journey.mjs` — **23 browser checks**
-  of `/register`: render/a11y, client-side password gate, two real
-  signups through the form, duplicate-email error path, session +
-  route-guard pass (added 2026-10-27, all green on Atlas).
+  prompts; zero network) and `qa.unit` (16 — QA prompt containment,
+  card-schema rejections, mock determinism, fail-closed key handling).
+- **UI journey:** `e2e/ui-journey.mjs` — **137 browser checks** across all
+  four roles, incl. the Phase 7 evidence bench + evidence panel and the
+  Phase 7.5 report card (run on the team's bench, read back on the
+  scorecard).
+- **Register journey:** `e2e/register-journey.mjs` — **27 browser checks**
+  of `/register`: render/a11y, role doors spelled out (Team / Judge /
+  Event manager), client-side password gate, two real signups through
+  the form with role-aware dashboards, duplicate-email error path,
+  session + route-guard pass (added 2026-10-27, all green on Atlas).
 - **External budgets when running everything:** GitHub's unauthenticated
   API is 60/h per IP (set `GITHUB_TOKEN` to lift) and the live LLM pools
   throttle in windows — probe first, run the AI tests inside a window.

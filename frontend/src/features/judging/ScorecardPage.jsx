@@ -6,6 +6,7 @@ import {
     getDemoCheck, checkDemo, listEvidence, addEvidence, deleteEvidence
 } from './judging.api.js';
 import './ScorecardPage.css';
+import QaReport from '@/features/shared/QaReport.jsx';
 
 // evidence badge labels — icon + text, never color alone (accessibility)
 const EV_LABEL = {
@@ -499,6 +500,13 @@ export default function ScorecardPage() {
                     {evError && <p role="alert" className="score-error">{evError}</p>}
                 </div>
             </div>
+
+            {/* ---------- QA report card — the project's own report, ratings
+                straight from the AI pass: stack, structure, complexity, docs,
+                readiness, errors, and how many users it could serve ---------- */}
+            {data?.submission?._id && (
+                <QaReport submissionId={data.submission._id} canRun />
+            )}
 
             {/* ---------- AI draft — optional, the judge decides alone ---------- */}
             <div className="ai-panel">

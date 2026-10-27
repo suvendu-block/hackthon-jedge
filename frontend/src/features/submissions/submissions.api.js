@@ -36,3 +36,8 @@ export const documentBlob = async (id, docId) =>
 
 export const checkDemo = async (id) => (await api.post(`/submissions/${id}/demo/check`, {})).data;
 export const getDemoCheck = async (id) => (await api.get(`/submissions/${id}/demo/check`)).data;
+
+// ---- Phase 8: AI quality report ---------------------------------------------
+// the report card: five ratings 1-10, visible errors, a capacity estimate
+export const getQaReport = async (id) => (await api.get(`/submissions/${id}/qa-report`)).data;
+export const runQaReport = async (id) => (await api.post(`/submissions/${id}/qa-report`, {})).data;

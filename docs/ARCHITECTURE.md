@@ -110,6 +110,9 @@ HTTP request
    `githubService` / `documentService` / `demoService` built on
    `utils/safeFetch.js`: pure functions where possible, unit-testable with
    injected lookup/fetch; the AI service takes injectable transport/env.
+   Phase 7.5's `qaReportService.js` reuses the AI transport, config, JSON
+   peeler, and artifact blocks via shared exports — one LLM pipeline, two
+   consumers (judge drafts + project report cards).
 5. **Config module** — `config/index.js` reads/validates env once at boot
    (fails fast if `JWT_SECRET` missing instead of crashing at first login).
 6. **Test layout** — `tests/unit/`, `tests/integration/`, supertest against an
@@ -162,6 +165,17 @@ check + per-hop redirect revalidation + byte caps + abort timeout.
 (SECURITY §6). AI analysis now receives the stored artifacts as
 `<untrusted_repository>/<untrusted_documents>/<untrusted_demo>` prompt
 blocks — stored reads only; an AI request never triggers a live fetch.
+
+**Phase 7.5 report-card path (as built, 2026-10-27):**
+
+```
+POST …/qa-report        (10/h/user)      owning team or assigned judge → qaReportService.runQAReport
+  → prompt from submission + stored artifacts (no live fetch; <untrusted_*> blocks intact)
+  → strict zod: 5 dimensions × 1-10 + errors[] + capacity + overall 1-10 — malformed → 503, stored nothing
+  → QAReport.create (own collection, ADR-0008) + inputs{repository, documents, demo}
+GET  …/qa-report                          owning team | assigned judge | organizer → latest card
+                                           (404 NO_QA_REPORT until the first run; runs 409 after close, reads keep working)
+```
 
 ### Frontend target — the "view" overhaul
 

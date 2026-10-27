@@ -110,6 +110,23 @@ Declared ADR-0013 — rewrite, not patch. Details:
 - [x] AI artifacts: server-fetched facts ride into the prompt as
       `<untrusted_repository>/<untrusted_documents>/<untrusted_demo>` blocks
 
+## Phase 7.5 — AI Quality Report Cards ✅ complete (2026-10-27)
+
+- [x] Register screen: role picker spells out **Team / Judge / Event manager**
+      with a helper line; role-aware dashboard copy (and the name field no
+      longer labelled "judge" for everyone)
+- [x] `qaReportService` — five rated dimensions (tech stack, folder
+      structure, complexity, documentation, readiness) 1–10, visible errors
+      with severity, "how many users it can serve" estimate, overall 1–10;
+      strict zod schema, fail-closed storage, mock + real provider
+- [x] Stored-artifacts only — an AI request never triggers a live fetch;
+      team-authored text rides in `<untrusted_*>` blocks (rules intact)
+- [x] Report card UI: team's submission card + judge's scorecard; owning
+      team and assigned judge run, organizer reads; inputs + limitations
+      printed on the card, 1–10 with typed evidence labels
+- [x] Rate-limited 10/user/h; runs stop when judging closes, stored cards
+      stay readable
+
 ## Phase 8 — Intelligence and Fairness
 
 - [ ] Judge disagreement alerts
@@ -137,6 +154,7 @@ Declared ADR-0013 — rewrite, not patch. Details:
 | M5 | Results visible | Leaderboard matches hand-computed totals | ✅ 2026-10-22 |
 | M6 | AI assist enabled | Reports typed, uncertain, overridable | ✅ 2026-10-23 |
 | M7 | Deep evidence | GitHub analysis with authorization, no code execution | ✅ 2026-10-27 |
+| M7.5 | Project rated | Report card: 5 dimensions + errors + capacity, typed, fail-closed | ✅ 2026-10-27 |
 | M8 | Production | Deployed, monitored, security checklist done | ⬜ |
 
 See [MILESTONES.md](MILESTONES.md) for the narrative version.

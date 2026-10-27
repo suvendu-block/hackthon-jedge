@@ -1,0 +1,273 @@
+/* ============================================================
+   QaReport — the project report card (ratings, errors, capacity)
+   consumes tokens.css only; fits both the submission card and
+   the scorecard's side column
+   ============================================================ */
+
+.qa-panel {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+    background: rgba(7, 11, 20, 0.55);
+    border: 1px solid var(--c-hairline);
+    border-radius: var(--r-sm);
+}
+
+.qa-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-2);
+}
+
+.qa-label,
+.qa-sub-label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--c-paper-dim);
+}
+
+/* the one number everyone looks at first */
+.qa-overall {
+    font-family: var(--font-mono);
+    color: var(--c-amber);
+    line-height: 1;
+}
+
+.qa-overall b {
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.qa-overall i {
+    font-style: normal;
+    font-size: 12px;
+    color: var(--c-paper-dim);
+    margin-left: 2px;
+}
+
+.qa-summary {
+    margin: 0 0 var(--sp-3);
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--c-paper);
+}
+
+.qa-muted {
+    margin: var(--sp-2) 0;
+    font-size: 13px;
+    color: var(--c-paper-dim);
+}
+
+.qa-err {
+    margin: var(--sp-2) 0;
+    font-size: 13px;
+    color: var(--c-danger);
+}
+
+/* ---- the five rated dimensions ---- */
+
+.qa-ratings {
+    list-style: none;
+    margin: 0 0 var(--sp-4);
+    padding: 0;
+    display: grid;
+    gap: var(--sp-3);
+}
+
+.qa-rating-top {
+    display: grid;
+    grid-template-columns: 110px 1fr 52px;
+    align-items: center;
+    gap: var(--sp-3);
+}
+
+.qa-dim {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    text-transform: lowercase;
+    color: var(--c-paper);
+}
+
+.qa-bar {
+    height: 7px;
+    background: rgba(239, 230, 211, 0.08);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+}
+
+.qa-bar i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--c-amber-deep), var(--c-amber));
+    border-radius: var(--r-pill);
+}
+
+.qa-score {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--c-amber);
+    text-align: right;
+}
+
+.qa-score i {
+    font-style: normal;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--c-paper-dim);
+}
+
+.qa-why {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--c-paper-dim);
+}
+
+/* typed evidence, always as text (never color alone) */
+.qa-type {
+    display: inline-block;
+    margin-left: var(--sp-2);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.qa-type--verified-evidence { color: var(--c-verdant); }
+.qa-type--team-claim { color: var(--c-amber); }
+.qa-type--ai-inference { color: var(--c-slate-blue); }
+
+/* ---- errors + capacity ---- */
+
+.qa-block { margin-bottom: var(--sp-3); }
+
+.qa-errors {
+    list-style: none;
+    margin: var(--sp-2) 0 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+}
+
+.qa-error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding: 6px var(--sp-2);
+    background: rgba(239, 230, 211, 0.04);
+    border-left: 3px solid var(--c-paper-dim);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.qa-error b {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.qa-error--blocker { border-left-color: var(--c-danger); }
+.qa-error--blocker b { color: var(--c-danger); }
+.qa-error--major { border-left-color: var(--c-amber); }
+.qa-error--major b { color: var(--c-amber); }
+.qa-error--minor { border-left-color: var(--c-slate-blue); }
+.qa-error--minor b { color: var(--c-slate-blue); }
+
+.qa-error em {
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--c-paper-dim);
+}
+
+.qa-capacity {
+    margin: var(--sp-2) 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--c-paper);
+}
+
+/* ---- honesty footer: inputs, limitations, rerun ---- */
+
+.qa-inputs {
+    margin: 0 0 var(--sp-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--c-verdant);
+}
+
+.qa-limits {
+    list-style: disc;
+    margin: 0 0 var(--sp-3);
+    padding-left: 18px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--c-paper-dim);
+}
+
+.qa-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding-top: var(--sp-2);
+    border-top: 1px dashed var(--c-hairline);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-paper-dim);
+}
+
+/* ---- buttons (same family as the evidence bench) ---- */
+
+.qa-run,
+.qa-mini {
+    font-family: var(--font-mono);
+    cursor: pointer;
+    border-radius: var(--r-sm);
+    transition: background 140ms ease, transform 140ms ease;
+}
+
+.qa-run {
+    margin-top: var(--sp-1);
+    padding: 9px var(--sp-4);
+    font-size: 12.5px;
+    color: var(--c-ink);
+    font-weight: 700;
+    background: var(--c-amber);
+    border: none;
+    box-shadow: var(--shadow-amber);
+}
+
+.qa-run:hover:not(:disabled) { background: var(--c-amber-deep); transform: translateY(-1px); }
+.qa-run:disabled { opacity: 0.55; cursor: wait; }
+
+.qa-mini {
+    padding: 5px 10px;
+    font-size: 10.5px;
+    color: var(--c-amber);
+    background: transparent;
+    border: 1px solid var(--c-hairline);
+}
+
+.qa-mini:hover:not(:disabled) { border-color: var(--c-amber); }
+.qa-mini:disabled { opacity: 0.5; cursor: wait; }
+
+.qa-run:focus-visible,
+.qa-mini:focus-visible {
+    outline: 2px solid var(--c-amber);
+    outline-offset: 2px;
+}
+
+/* narrow screens: let the bar row wrap instead of squeezing the label */
+@media (max-width: 560px) {
+    .qa-rating-top { grid-template-columns: 1fr 52px; }
+    .qa-bar { display: none; }
+}

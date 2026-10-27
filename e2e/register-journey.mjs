@@ -35,7 +35,11 @@ try {
     check(fs >= 15, `input text ${fs}px — iOS won't zoom the page on focus`);
     const btn = await page.locator('.login-submit').boundingBox();
     check(btn && btn.height >= 40, `submit is ${btn ? Math.round(btn.height) : 0}px tall (touch-friendly ≥40)`);
-    check(await page.locator('.login-select option').count() === 3, 'role picker offers team / judge / organizer');
+    const roleOpts = await page.locator('.login-select option').allTextContents();
+    check(roleOpts.length === 3 && /Event manager/.test(roleOpts.join(' ')) && /Judge/.test(roleOpts.join(' ')),
+        `role picker spells out all three doors: ${roleOpts.join(' / ')}`);
+    check((await page.locator('.login-hint').textContent()).includes('dashboard'),
+        'helper line says what the choice changes');
     check((await page.locator('.login-footer a').textContent()) === 'Sign in', 'footer links back to sign in');
     await shot('reg-1-form');
 
@@ -62,6 +66,9 @@ try {
     let body = await page.locator('body').textContent();
     check(body.includes(`Reg Judge ${stamp}`), 'dashboard greets the new account by name');
     check(body.includes('judge'), 'role taken from the picker — signed in as judge');
+    const firstLabel = (await page.locator('.dash-field span').first().textContent()).trim();
+    check(firstLabel === 'name', `dashboard fields label honestly (first label is "${firstLabel}", used to be "judge")`);
+    check(body.includes('scorecards'), 'the judge dashboard speaks to judging, not one generic note');
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('user') || 'null'));
     check(stored?.role === 'judge' && stored?.email === JUDGE_EMAIL, 'session persisted (token + user in storage)');
     await shot('reg-3-dashboard');
@@ -108,6 +115,7 @@ try {
     await page.waitForSelector('.dash-logout', { timeout: 10000 });
     body = await page.locator('body').textContent();
     check(body.includes(`Reg Org ${stamp}`) && body.includes('organizer'), 'organizer account created and signed in');
+    check(body.includes('Create an event'), 'organizer dashboard speaks to event managers');
 
     head('8 · the fresh organizer can actually use the app');
     await page.goto(`${UI}/events`, { waitUntil: 'networkidle' });

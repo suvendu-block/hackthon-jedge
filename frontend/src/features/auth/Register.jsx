@@ -185,16 +185,20 @@ export default function Register() {
                     </label>
 
                     <label className="login-field">
-                        <span>Role</span>
+                        <span>I'm joining as</span>
                         <select
                             value={role}
                             onChange={(e) => setRole(e.target.value)}
                             className="login-select"
                         >
-                            <option value="team">Team</option>
-                            <option value="judge">Judge</option>
-                            <option value="organizer">Organizer</option>
+                            <option value="team">Team — submit &amp; rate your project</option>
+                            <option value="judge">Judge — review and score entries</option>
+                            <option value="organizer">Event manager — create &amp; run events</option>
                         </select>
+                        <small className="login-hint">
+                            Pick how you&apos;ll use HackJudge — it decides which
+                            dashboard you get.
+                        </small>
                     </label>
 
                     {error && <p role="alert" className="login-error">{error}</p>}

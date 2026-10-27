@@ -427,3 +427,7 @@ export const analyzeSubmission = async ({ event, submission, artifacts = {} }, {
 
     throw lastError || badOutput();
 };
+
+// shared with qaReportService — the second LLM consumer reuses the same
+// transport, config, JSON peeler, and artifact blocks instead of copying them
+export { config as llmConfig, httpTransport, extractJson, artifactBlocks };

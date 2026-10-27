@@ -2,10 +2,25 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/features/auth/AuthContext.jsx';
 import './Dashboard.css';
 
-// placeholder dashboard — real judging UI lands in Phase 2
-// here just to prove the design tokens work beyond the login page
+// role-aware landing — everyone gets their own way in, not one copy fits all
+const BLURB = {
+    team: {
+        note: 'Your project lives on the docket — paste the repo and demo links, run the AI report card, and see your stack, structure, and readiness rated 1–10.',
+        cta: 'open your project'
+    },
+    judge: {
+        note: 'Your assigned events and scorecards start here — head to the docket to review submissions with the AI drafts and report cards beside you.',
+        cta: 'open the docket'
+    },
+    organizer: {
+        note: 'Create an event, invite judges, and follow submissions as they land — the docket is your run sheet.',
+        cta: 'open the docket'
+    }
+};
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const blurb = BLURB[user.role] || BLURB.judge;
 
   return (
     <main className="dash">
@@ -23,7 +38,7 @@ export default function Dashboard() {
       <section className="dash-card">
         <div className="dash-card-row">
           <div className="dash-field">
-            <span>judge</span>
+            <span>name</span>
             <strong>{user.name}</strong>
           </div>
           <div className="dash-field">
@@ -36,13 +51,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <p className="dash-note">
-          Events and scorecards start here — head to the docket to
-          create one or see what you&apos;ve been assigned.
-        </p>
+        <p className="dash-note">{blurb.note}</p>
 
         <div className="dash-actions">
-          <Link to="/events" className="dash-cta">open the docket</Link>
+          <Link to="/events" className="dash-cta">{blurb.cta}</Link>
           <button className="dash-logout" onClick={logout}>
             Leave the floor
           </button>

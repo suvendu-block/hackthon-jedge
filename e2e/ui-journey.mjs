@@ -81,7 +81,9 @@ async function logout(page) {
 }
 
 // the docket reuses .events-empty for its loading line, and React can mount
-// it after our first check — wait for a genuinely settled screen instead
+// it after our first check — wait for a genuinely settled screen instead.
+// generous timeout: the event list grows with every test run (test residue
+// piles up in the DB), so a reload can take longer than a fresh visit.
 async function waitForDocket(page) {
     await page.waitForFunction(() => {
         const body = document.body.innerText;
@@ -90,7 +92,7 @@ async function waitForDocket(page) {
             || body.includes('No open events')
             || body.includes('No events assigned')
             || !!document.querySelector('.event-card');
-    }, null, { timeout: 8000 });
+    }, null, { timeout: 20000 });
 }
 
 const ctxArgs = { viewport: { width: 1440, height: 900 } };
@@ -379,6 +381,29 @@ try {
         );
         const demoChip = await page.locator('.sub-evidence .ev-chip--ok', { hasText: 'reachable' }).textContent();
         check(/HTTP 200/.test(demoChip), `demo chip: "${demoChip.trim()}"`);
+
+        // ---- Phase 8: the AI report card -----------------------------------
+        // one button rates the stack, structure, complexity, docs, readiness —
+        // a real provider call sits behind it, so wait on the overall number
+        await page.locator('[data-testid="qa-panel"] .qa-run').click();
+        await page.waitForFunction(
+            () => document.querySelector('[data-testid="qa-panel"] [data-testid="qa-overall"]') !== null,
+            null, { timeout: 60000 }
+        );
+        const overallTxt = await page.locator('[data-testid="qa-overall"]').textContent();
+        const overall = Number(overallTxt);
+        check(overall >= 1 && overall <= 10, `overall rating lands 1-10 — got ${overallTxt}/10`);
+        const qaTxt = await page.locator('[data-testid="qa-panel"]').textContent();
+        check(
+            ['tech stack', 'folder structure', 'complexity', 'documentation', 'readiness']
+                .every(d => qaTxt.includes(d)),
+            'all five dimensions rated on the card'
+        );
+        check(qaTxt.includes('how many users it can serve'), 'capacity estimate is on the card');
+        check(qaTxt.includes('errors found'), 'errors section renders (list or honest empty)');
+        check(qaTxt.includes('based on:'), 'the card names the inputs it leaned on');
+        check(qaTxt.includes('a hint, not a verdict'), 'the card keeps its honesty label');
+        check(await page.locator('.qa-type').count() >= 5, 'every rating carries a typed evidence label');
         await logout(page);
     }
 
@@ -428,6 +453,20 @@ try {
         check(evPanel.includes('public GitHub API'), 'the read source is named honestly');
         check(evPanel.includes('field-notes.md'), 'the team upload is listed as its own row');
         check(evPanel.includes('reachable · HTTP 200'), 'demo liveness is on record, judge can re-check');
+
+        // ---- Phase 8: the stored report card rides along -------------------
+        // the team ran it earlier — the judge reads the same card, no new LLM call
+        await page.waitForFunction(
+            () => document.querySelector('[data-testid="qa-panel"] [data-testid="qa-overall"]') !== null,
+            null, { timeout: 20000 }
+        );
+        const qaPanel = await page.locator('[data-testid="qa-panel"]').textContent();
+        check(
+            qaPanel.includes('tech stack') && qaPanel.includes('folder structure'),
+            'the report card rates stack + structure on the scorecard'
+        );
+        check(qaPanel.includes('how many users it can serve'), 'capacity estimate rides along');
+        check(qaPanel.includes('a hint, not a verdict'), 'the card keeps its honesty label on the scorecard');
 
         // the judge records their own note, tied to a criterion
         await page.selectOption('.ev-form select >> nth=0', 'Impact');

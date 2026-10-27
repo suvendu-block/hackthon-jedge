@@ -6,6 +6,47 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (2026-10-27) — Phase 7.5: AI quality report cards (the QA pass)
+
+- **`services/qaReportService.js`** — the project's QA read: **five rated
+  dimensions** (tech stack, folder structure, complexity, documentation,
+  readiness) each **1–10** with rationale + confidence + typed evidence
+  (ADR-0009), the **errors a QA pass would flag** (severity
+  blocker/major/minor, source named), a **"how many users it can serve"
+  capacity estimate** (always labeled `ai-inference`), and an **overall
+  1–10**. Strict zod schema — unknown fields, missing dimensions, or
+  out-of-range scores → 503 `AI_BAD_OUTPUT`, **nothing stored**; mock
+  provider (`LLM_API_KEY=mock`) gives a deterministic card for dev/tests.
+- **Stored artifacts only.** The prompt reuses the Phase 7
+  `<untrusted_*>` blocks via shared exports from `aiEvaluationService`
+  (one transport/config/JSON-peeler pipeline, two consumers) — an AI
+  request never triggers a live fetch, and README prose stays data.
+- **`QAReport` collection** (ADR-0008): own collection, regenerated
+  freely, never touches Evaluation; `inputs` records which artifacts the
+  card leaned on (repository / documents / demo).
+- **Routes.** `POST /submissions/:id/qa-report` — owning team or assigned
+  judge, 10/h per user; `GET` — those plus the organizer, 404
+  `NO_QA_REPORT` before the first run; runs 409 `EVENT_CLOSED` once
+  judging closes, stored cards stay readable.
+- **Frontend.** `QaReport` component (self-fetching): the team's
+  submission card and the judge's scorecard both render the card —
+  dimension bars, rationales with `✓ verified / ◆ claimed / ◇ inferred`
+  labels, error rows, capacity line, inputs + limitations, and the
+  standing footer *AI-made — a hint, not a verdict*.
+- **Auth UX fixes.** Register's role picker now spells out **Team / Judge /
+  Event manager** with a helper line ("it decides which dashboard you
+  get"); the dashboard's name field no longer reads "judge" for everyone
+  and speaks per role (team / judge / event manager copy).
+- **Tests: 25 new backend checks** — `tests/qa.unit.test.js` (16:
+  prompt containment, coverage/duplicate/extra-field/range rejections,
+  mock determinism + evidence-derived errors, fail-closed key handling,
+  transport retry-then-drop) + `tests/qa.test.js` (9 live: role matrix,
+  full card shape on a real provider call, judge re-run, close
+  lifecycle). Journeys extended: the UI journey grew to **137 checks**
+  (runs a report card through the bench, reads it back on the scorecard)
+  and the register journey to **27** (role doors + role-aware dashboards).
+  Full backend suite: **206/206**.
+
 ### Added (2026-10-27) — Register screen (browser signup)
 
 - **`/register` + `Register.jsx`** — name / email / password / role form
@@ -14,7 +55,7 @@ versions follow [Semantic Versioning](https://semver.org/).
   new account on the dashboard. Signed-in visitors get an "already logged
   in" card instead of a second form.
 - **Verified end-to-end in a browser:** `e2e/register-journey.mjs`
-  (**23 checks**) — every control sits inside its label, 41px submit,
+  (**27 checks**) — every control sits inside its label, 41px submit,
   15px inputs (no iOS zoom), 7-char password refused before anything is
   sent, real judge + organizer signups signed in and past the route
   guard, duplicate email shows the server's "Email Already registered" as

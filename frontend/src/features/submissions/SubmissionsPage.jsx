@@ -8,6 +8,7 @@ import {
     checkDemo, getDemoCheck
 } from './submissions.api.js';
 import { getEvent } from '@/features/events/events.api.js';
+import QaReport from '@/features/shared/QaReport.jsx';
 import './SubmissionsPage.css';
 
 // the submissions screen — a team enters/edits its project,
@@ -625,6 +626,15 @@ export default function SubmissionsPage() {
                                     {evMsg && <p className="ev-msg">{evMsg}</p>}
                                 </div>
                             )}
+
+                            {/* the AI report card — tech stack, structure,
+                                complexity, errors, capacity. everyone who can
+                                see the project reads it; the owning team and
+                                assigned judges can run or refresh one */}
+                            <QaReport
+                                submissionId={s._id}
+                                canRun={s.team._id === user._id || user.role === 'judge'}
+                            />
 
                             {/* per-role actions on the card */}
                             <div className="sub-actions">

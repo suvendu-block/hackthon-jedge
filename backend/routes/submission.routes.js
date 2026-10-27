@@ -7,6 +7,7 @@ import {
     deleteSubmission
 } from '../controller/submission.controller.js';
 import { requestAnalysis, getAnalysis } from '../controller/aiAnalysis.controller.js';
+import { requestQaReport, getQaReport } from '../controller/qaReport.controller.js';
 import {
     grantRepository, revokeRepository, getGrantStatus,
     refreshInsight, getInsight
@@ -52,6 +53,17 @@ const aiSpendLimit = rateLimit({
 });
 byId.post('/:id/ai-analysis', requireRole('judge'), aiSpendLimit, requestAnalysis);
 byId.get('/:id/ai-analysis', requireRole('judge'), getAnalysis);
+
+// QA report card — the owning team or the assigned judge may run one, anyone
+// who can see the submission reads the stored card. metered like the drafts
+// (10 per user per hour) so a refresh-clicker can't run up the provider bill
+const qaSpendLimit = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    keyFn: (req) => `qa-report:${req.user._id}`
+});
+byId.post('/:id/qa-report', qaSpendLimit, requestQaReport);
+byId.get('/:id/qa-report', getQaReport);
 
 // ---- Phase 7: evidence depth ----------------------------------------------
 // GitHub grant + insight (team authorization is the M7 gate), documents,

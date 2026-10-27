@@ -43,8 +43,9 @@ const ensureJudgingOpen = (sub) => {
 
 // Phase 7 artifacts the model gets to reason over: whatever the server has
 // already fetched for this submission. stored reads only — an AI request
-// never triggers live network calls of its own.
-const loadArtifacts = async (submissionId) => {
+// never triggers live network calls of its own. (exported — the QA report
+// controller reads the same artifacts.)
+export const loadArtifacts = async (submissionId) => {
     const [insight, documents, demoCheck] = await Promise.all([
         RepositoryInsight.findOne({ submission: submissionId }).sort({ createdAt: -1 }),
         SubmissionDocument.find({ submission: submissionId }).sort({ createdAt: -1 }),
