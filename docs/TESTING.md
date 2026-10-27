@@ -116,6 +116,11 @@ Run everything in CI on each pull request (BL-22).
 - [x] Unpublished leaderboard hidden from team role (and judges — sealed
       screen asserted for both; organizer preview + release + CSV download
       all walked in the UI journey)
+- [x] Register flow: form → session → dashboard; short password blocked
+      before anything is sent; duplicate email surfaces the server message
+      as `role=alert` with **no** session issued; already-logged-in state;
+      both judge and organizer accounts created through the form pass the
+      route guard (`e2e/register-journey.mjs` — 23 checks)
 - [ ] Keyboard-only navigation through the scoring flow; ARIA labels present
 
 ## 8. Test Data and Fixtures
@@ -151,8 +156,12 @@ Run everything in CI on each pull request (BL-22).
 - **Unit suites:** `scoring.unit` (12), `ai.unit` (18), `scoring`… plus
   `evidence.unit` (37 — safeFetch, token vault, zip extraction, artifact
   prompts; zero network).
-- **UI journey:** `e2e/ui-journey.mjs` — **126 browser checks** across all
+- **UI journey:** `e2e/ui-journey.mjs` — **127 browser checks** across all
   four roles, incl. the Phase 7 evidence bench + evidence panel.
+- **Register journey:** `e2e/register-journey.mjs` — **23 browser checks**
+  of `/register`: render/a11y, client-side password gate, two real
+  signups through the form, duplicate-email error path, session +
+  route-guard pass (added 2026-10-27, all green on Atlas).
 - **External budgets when running everything:** GitHub's unauthenticated
   API is 60/h per IP (set `GITHUB_TOKEN` to lift) and the live LLM pools
   throttle in windows — probe first, run the AI tests inside a window.

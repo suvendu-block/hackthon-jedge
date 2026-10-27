@@ -16,7 +16,8 @@ const check = (cond, label) => {
 };
 const head = (t) => console.log(`\n--- ${t} ---`);
 
-// accounts come from the API since the UI has no register screen
+// accounts come from the API for speed — the /register screen itself is
+// walked end-to-end by e2e/register-journey.mjs
 async function api(path, opts = {}) {
     const res = await fetch(`${API}${path}`, {
         method: opts.method || 'GET',

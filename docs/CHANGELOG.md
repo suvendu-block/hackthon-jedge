@@ -6,6 +6,21 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (2026-10-27) — Register screen (browser signup)
+
+- **`/register` + `Register.jsx`** — name / email / password / role form
+  sharing the login screen's look (`Login.css`, canvas backdrop, floating
+  evidence chips); `AuthContext.register` stores token + user and lands the
+  new account on the dashboard. Signed-in visitors get an "already logged
+  in" card instead of a second form.
+- **Verified end-to-end in a browser:** `e2e/register-journey.mjs`
+  (**23 checks**) — every control sits inside its label, 41px submit,
+  15px inputs (no iOS zoom), 7-char password refused before anything is
+  sent, real judge + organizer signups signed in and past the route
+  guard, duplicate email shows the server's "Email Already registered" as
+  `role=alert` with no session issued, and the login page's "Create
+  account" link reaches the screen.
+
 ### Added (2026-10-27) — Phase 7: evidence depth (GitHub, documents, demo, evidence linking)
 
 - **Phase 7 — Evidence Depth.** Submissions gained typed evidence fields:
@@ -59,7 +74,7 @@ versions follow [Semantic Versioning](https://semver.org/).
   download-name safety, artifact prompt containment) + `tests/evidence.test.js`
   (22 live: schema gates, grant/revoke/re-grant, insight on
   octocat/Hello-World, upload caps/types, demo check, evidence CRUD + role
-  gating, live AI with artifacts). UI journey grew to **126 checks** — the
+  gating, live AI with artifacts). UI journey grew to **127 checks** — the
   team grants + analyzes + uploads through the bench, the judge reads the
   evidence panel, records a criterion-linked note, and both survive reload.
 - **M7 gate verified:** every outbound fetch passes the SSRF guard, redirects
