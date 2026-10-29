@@ -111,7 +111,9 @@ const qaReportSchema = new mongoose.Schema({
         documents: { type: Number, default: 0 },
         demo: { type: Boolean, default: false }
     }
-}, { timestamps: true });
+    // `errors` is technically a reserved mongoose path, but it's the word the
+    // whole product uses for this list — silencing the warning on purpose
+}, { timestamps: true, suppressReservedKeysWarning: true });
 
 // latest card for a submission is the hot path
 qaReportSchema.index({ submission: 1, createdAt: -1 });
